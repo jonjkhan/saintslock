@@ -1,0 +1,130 @@
+import { RitualContentItem } from '../types/models';
+
+export const ritualContent: RitualContentItem[] = [
+  {
+    id: 'steady-heart',
+    type: 'prayer',
+    title: 'Steady My Heart',
+    text: 'Lord Jesus Christ, steady my heart and order my desires.',
+  },
+  {
+    id: 'quiet-obedience',
+    type: 'prayer',
+    title: 'Quiet Obedience',
+    text: 'Let this pause become obedience, not performance.',
+  },
+  {
+    id: 'guard-my-eyes',
+    type: 'prayer',
+    title: 'Guard My Eyes',
+    text: 'Guide my eyes, my thoughts, and my time toward what is clean and fruitful.',
+  },
+  {
+    id: 'seek-eternal',
+    type: 'prayer',
+    title: 'Seek What Lasts',
+    text: 'Teach me to seek what is eternal before what is easy.',
+  },
+  {
+    id: 'breath-and-mercy',
+    type: 'reflection',
+    title: 'Breath And Mercy',
+    text: 'Take one slow breath. Desire becomes gentler when it is placed before God.',
+  },
+  {
+    id: 'attend-first',
+    type: 'reflection',
+    title: 'Attend First',
+    text: 'Before the thumb moves, let the heart bow. Attention is part of worship.',
+  },
+  {
+    id: 'small-rule',
+    type: 'reflection',
+    title: 'A Small Rule',
+    text: 'A faithful life is often built by small refusals and small returns.',
+  },
+  {
+    id: 'peace-before-noise',
+    type: 'reflection',
+    title: 'Peace Before Noise',
+    text: 'Ask for peace before noise, and for clarity before appetite.',
+  },
+  {
+    id: 'watchfulness',
+    type: 'reflection',
+    title: 'Watchfulness',
+    text: 'Guarding the doorway of the mind is not fear. It is watchfulness.',
+  },
+  {
+    id: 'clean-hands',
+    type: 'prayer',
+    title: 'Clean Hands',
+    text: 'Receive this moment, O God, and make my use of it clean.',
+  },
+  {
+    id: 'gentle-strength',
+    type: 'prayer',
+    title: 'Gentle Strength',
+    text: 'Give me the gentle strength to choose what gives life.',
+  },
+  {
+    id: 'returning',
+    type: 'reflection',
+    title: 'Returning',
+    text: 'This pause is not failure. It is a return.',
+  },
+  {
+    id: 'stillness',
+    type: 'scripture',
+    title: 'Be Still',
+    text: 'Be still, and know that I am God.',
+    attribution: 'Psalm 46:10 (public domain)',
+  },
+  {
+    id: 'set-affection',
+    type: 'scripture',
+    title: 'Set Your Mind',
+    text: 'Set your affection on things above, not on things on the earth.',
+    attribution: 'Colossians 3:2 (public domain)',
+  },
+  {
+    id: 'heart-established',
+    type: 'scripture',
+    title: 'Established With Grace',
+    text: 'It is a good thing that the heart be established with grace.',
+    attribution: 'Hebrews 13:9 (public domain)',
+  },
+  {
+    id: 'quiet-soul',
+    type: 'scripture',
+    title: 'A Quiet Soul',
+    text: 'My soul is even as a weaned child.',
+    attribution: 'Psalm 131:2 (public domain)',
+  },
+  {
+    id: 'redeem-time',
+    type: 'scripture',
+    title: 'Redeem The Time',
+    text: 'Redeeming the time, because the days are evil.',
+    attribution: 'Ephesians 5:16 (public domain)',
+  },
+  {
+    id: 'presented-desire',
+    type: 'reflection',
+    title: 'Presented Desire',
+    text: 'Name the urge without panic. Offer it, and let God teach it its place.',
+  },
+  {
+    id: 'ordered-love',
+    type: 'reflection',
+    title: 'Ordered Love',
+    text: 'Freedom is not the absence of desire. It is desire put in right order.',
+  },
+  {
+    id: 'morning-rule',
+    type: 'prayer',
+    title: 'Rule Of Life',
+    text: 'Make my phone serve my calling, not govern my attention.',
+  },
+];
+
