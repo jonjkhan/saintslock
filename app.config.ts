@@ -17,5 +17,5 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'com.jonathankhan.saintslock.DeviceActivityMonitor',
     },
   },
-  plugins: ['./plugins/withSaintsLockScreenTime'],
+  plugins: ['./plugins/withSaintsLockScreenTime.js'],
 });
