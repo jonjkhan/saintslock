@@ -1,8 +1,12 @@
-const { withEntitlementsPlist } = require('@expo/config-plugins');
+const { withEntitlementsPlist, withInfoPlist } = require('@expo/config-plugins');
 
 const APP_GROUP = 'group.com.jonathankhan.saintslock';
 
 const withSaintsLockScreenTime = (config) => {
+  const enableDevelopmentFamilyControls = Boolean(
+    config.extra?.saintsLockScreenTime?.enableDevelopmentFamilyControls
+  );
+
   config = withEntitlementsPlist(config, (configWithEntitlements) => {
     const existingGroups =
       configWithEntitlements.modResults['com.apple.security.application-groups'];
@@ -18,7 +22,20 @@ const withSaintsLockScreenTime = (config) => {
     configWithEntitlements.modResults['com.apple.security.application-groups'] =
       normalizedGroups;
 
+    if (enableDevelopmentFamilyControls) {
+      configWithEntitlements.modResults['com.apple.developer.family-controls'] = true;
+    } else {
+      delete configWithEntitlements.modResults['com.apple.developer.family-controls'];
+    }
+
     return configWithEntitlements;
+  });
+
+  config = withInfoPlist(config, (configWithInfoPlist) => {
+    configWithInfoPlist.modResults.SaintsLockEnableDevelopmentFamilyControls =
+      enableDevelopmentFamilyControls;
+
+    return configWithInfoPlist;
   });
 
   /*

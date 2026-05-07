@@ -6,13 +6,22 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "SAINTSLOCK_ENABLE_FAMILY_CONTROLS_DEV": "true"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "SAINTSLOCK_ENABLE_FAMILY_CONTROLS_DEV": "false"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "SAINTSLOCK_ENABLE_FAMILY_CONTROLS_DEV": "false"
+      }
     }
   },
   "submit": {

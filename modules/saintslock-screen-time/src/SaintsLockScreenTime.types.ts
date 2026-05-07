@@ -6,15 +6,22 @@ export type ScreenTimeStubStatus =
   | 'denied';
 
 export interface ScreenTimeStubResult {
-  ok: false;
+  ok: boolean;
   status: ScreenTimeStubStatus;
   message: string;
 }
 
 export interface ScreenTimeAuthorizationResult extends ScreenTimeStubResult {}
 
+export interface ScreenTimeSelectionSummary {
+  applicationTokenCount: number;
+  categoryTokenCount: number;
+  webDomainTokenCount: number;
+  encodedSelection?: string | null;
+}
+
 export interface ScreenTimePickerResult extends ScreenTimeStubResult {
-  selection: null;
+  selection: ScreenTimeSelectionSummary | null;
 }
 
 export interface ScreenTimeShieldResult extends ScreenTimeStubResult {}

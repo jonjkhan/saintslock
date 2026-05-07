@@ -12,6 +12,9 @@ interface AppSelectionScreenProps {
   isPremium: boolean;
   onToggleApp: (appName: string) => void;
   onContinue: () => void;
+  onOpenDevelopmentFamilyControls?: () => void;
+  showDevelopmentFamilyControlsSetup?: boolean;
+  developmentFamilyControlsMessage?: string | null;
 }
 
 export function AppSelectionScreen({
@@ -19,6 +22,9 @@ export function AppSelectionScreen({
   isPremium,
   onToggleApp,
   onContinue,
+  onOpenDevelopmentFamilyControls,
+  showDevelopmentFamilyControlsSetup = false,
+  developmentFamilyControlsMessage,
 }: AppSelectionScreenProps) {
   return (
     <ScreenShell
@@ -41,6 +47,23 @@ export function AppSelectionScreen({
         Free includes one app lock. Premium unlocks unlimited app locks.
       </Text>
 
+      {showDevelopmentFamilyControlsSetup ? (
+        <View style={styles.developmentSection}>
+          <AppButton
+            label="Set up Screen Time selection (Dev)"
+            onPress={onOpenDevelopmentFamilyControls ?? (() => undefined)}
+            variant="secondary"
+          />
+          <Text style={styles.helperText}>
+            Development-only iOS setup for Family Controls authorization and
+            app selection testing.
+          </Text>
+          {developmentFamilyControlsMessage ? (
+            <Text style={styles.statusText}>{developmentFamilyControlsMessage}</Text>
+          ) : null}
+        </View>
+      ) : null}
+
       <AppButton
         disabled={selectedApps.length === 0}
         label="Continue"
@@ -61,5 +84,14 @@ const styles = StyleSheet.create({
     fontFamily: typography.bodyFamily,
     fontSize: 14,
     lineHeight: 22,
+  },
+  developmentSection: {
+    gap: spacing.sm,
+  },
+  statusText: {
+    color: colors.accent,
+    fontFamily: typography.bodyFamily,
+    fontSize: 13,
+    lineHeight: 20,
   },
 });

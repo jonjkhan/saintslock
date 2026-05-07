@@ -5,6 +5,10 @@ import { ScreenShell } from '../components/ScreenShell';
 import { APP_LINKS } from '../constants/links';
 import { useAppContext } from '../context/AppContext';
 import { trackEvent } from '../services/analytics';
+import {
+  runDevelopmentFamilyControlsSetup,
+  shouldShowDevelopmentFamilyControlsSetup,
+} from '../services/IOSScreenTimeBlockerService';
 import { colors, spacing, typography } from '../theme/tokens';
 import { RitualContentItem } from '../types/models';
 import { pickRandomRitualContent } from '../utils/ritual';
@@ -38,6 +42,8 @@ export function SaintsLockApp() {
   const [paywall, setPaywall] = useState<PaywallState | null>(null);
   const [paywallLoading, setPaywallLoading] = useState(false);
   const [homeBannerMessage, setHomeBannerMessage] = useState<string | null>(null);
+  const [developmentFamilyControlsMessage, setDevelopmentFamilyControlsMessage] =
+    useState<string | null>(null);
   const [ritualSession, setRitualSession] = useState<{
     appId: string;
     contentItem: RitualContentItem;
@@ -105,6 +111,39 @@ export function SaintsLockApp() {
     if (!result.ok && result.reason === 'paywall') {
       await openPaywall('Keep your rule of life going.', result.message);
     }
+  };
+
+  const handleOpenDevelopmentFamilyControls = async () => {
+    const result = await runDevelopmentFamilyControlsSetup();
+
+    if (result.ok && result.selection) {
+      const parts = [
+        result.selection.applicationTokenCount > 0
+          ? `${result.selection.applicationTokenCount} app token${
+              result.selection.applicationTokenCount === 1 ? '' : 's'
+            }`
+          : null,
+        result.selection.categoryTokenCount > 0
+          ? `${result.selection.categoryTokenCount} categor${
+              result.selection.categoryTokenCount === 1 ? 'y' : 'ies'
+            }`
+          : null,
+        result.selection.webDomainTokenCount > 0
+          ? `${result.selection.webDomainTokenCount} web domain${
+              result.selection.webDomainTokenCount === 1 ? '' : 's'
+            }`
+          : null,
+      ].filter(Boolean);
+
+      setDevelopmentFamilyControlsMessage(
+        parts.length > 0
+          ? `${result.message} Selected ${parts.join(', ')}.`
+          : result.message
+      );
+      return;
+    }
+
+    setDevelopmentFamilyControlsMessage(result.message);
   };
 
   const handleStartRitual = async () => {
@@ -276,10 +315,13 @@ export function SaintsLockApp() {
 
       {screen === 'appSelection' ? (
         <AppSelectionScreen
+          developmentFamilyControlsMessage={developmentFamilyControlsMessage}
           isPremium={isPremium}
           onContinue={() => setScreen('ritualLength')}
+          onOpenDevelopmentFamilyControls={() => void handleOpenDevelopmentFamilyControls()}
           onToggleApp={handleToggleApp}
           selectedApps={state.settings.selectedApps}
+          showDevelopmentFamilyControlsSetup={shouldShowDevelopmentFamilyControlsSetup()}
         />
       ) : null}
 

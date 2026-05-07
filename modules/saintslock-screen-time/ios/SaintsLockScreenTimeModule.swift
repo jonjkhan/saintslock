@@ -1,20 +1,29 @@
 import ExpoModulesCore
 
 enum SaintsLockScreenTimeEnvironment {
-  static func notImplemented(_ message: String) -> [String: Any] {
-    if #available(iOS 15.0, *) {
-      return SaintsLockScreenTimeResult(
-        ok: false,
-        status: .notImplemented,
-        message: message
-      ).toDictionary()
-    }
+  static func isDevelopmentFamilyControlsEnabled() -> Bool {
+    let value = Bundle.main.object(forInfoDictionaryKey: "SaintsLockEnableDevelopmentFamilyControls")
+    return value as? Bool ?? false
+  }
 
-    return SaintsLockScreenTimeResult(
+  static func unsupported(_ message: String) -> [String: Any] {
+    SaintsLockScreenTimeResult(
       ok: false,
       status: .unsupported,
-      message: "Screen Time APIs require iOS 15 or later."
+      message: message
     ).toDictionary()
+  }
+
+  static func notImplemented(_ message: String) -> [String: Any] {
+    SaintsLockScreenTimeResult(
+      ok: false,
+      status: .notImplemented,
+      message: message
+    ).toDictionary()
+  }
+
+  static func unavailableForCurrentBuild(_ message: String) -> [String: Any] {
+    unsupported(message)
   }
 }
 
@@ -22,23 +31,23 @@ public class SaintsLockScreenTimeModule: Module {
   public func definition() -> ModuleDefinition {
     Name("SaintsLockScreenTime")
 
-    AsyncFunction("requestAuthorization") {
-      SaintsLockAuthorization.requestAuthorization()
+    AsyncFunction("requestAuthorization") { () async -> [String: Any] in
+      await SaintsLockAuthorization.requestAuthorization()
     }
 
-    AsyncFunction("getAuthorizationStatus") {
-      SaintsLockAuthorization.getAuthorizationStatus()
+    AsyncFunction("getAuthorizationStatus") { () async -> [String: Any] in
+      await SaintsLockAuthorization.getAuthorizationStatus()
     }
 
-    AsyncFunction("presentFamilyActivityPicker") {
-      SaintsLockFamilyActivityPicker.presentPicker()
+    AsyncFunction("presentFamilyActivityPicker") { () async -> [String: Any] in
+      await SaintsLockFamilyActivityPicker.presentPicker()
     }
 
-    AsyncFunction("applyShield") {
+    AsyncFunction("applyShield") { () async -> [String: Any] in
       SaintsLockManagedSettingsController.applyShield()
     }
 
-    AsyncFunction("clearShield") {
+    AsyncFunction("clearShield") { () async -> [String: Any] in
       SaintsLockManagedSettingsController.clearShield()
     }
   }
