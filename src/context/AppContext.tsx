@@ -21,7 +21,9 @@ import {
 } from '../services/storage';
 import {
   configurePurchases,
-  purchaseMonthly,
+  presentCustomerCenter,
+  presentPremiumPaywall,
+  registerCustomerInfoListener,
   refreshCustomerInfo,
   restorePurchases,
 } from '../services/subscription';
@@ -67,6 +69,7 @@ interface AppContextValue {
     useBypass: (appId: string) => Promise<ActionResult>;
     purchasePremium: () => Promise<ActionResult>;
     restorePremium: () => Promise<ActionResult>;
+    openCustomerCenter: () => Promise<ActionResult>;
     resetTodayStats: () => Promise<void>;
     refreshBlockerSnapshot: () => Promise<void>;
     selectDemoApp: (appId: string) => void;
@@ -108,9 +111,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let unsubscribeCustomerInfoListener: () => void = () => {};
 
     async function initialize() {
       await configurePurchases();
+      unsubscribeCustomerInfoListener = registerCustomerInfoListener((subscriptionState) => {
+        if (!mounted) {
+          return;
+        }
+
+        commitState({
+          ...stateRef.current,
+          subscription: subscriptionState,
+        });
+      });
 
       const [settings, dailyStats, lifetimeStats, subscription] = await Promise.all([
         loadSettings(),
@@ -144,6 +158,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
+      unsubscribeCustomerInfoListener();
     };
   }, []);
 
@@ -428,7 +443,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     purchasePremium: async (): Promise<ActionResult> => {
       await trackEvent('purchase_started');
-      const result = await purchaseMonthly();
+      const result = await presentPremiumPaywall();
 
       if (!result.success) {
         return {
@@ -470,6 +485,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...current,
         subscription: {
           isPremium: result.isPremium,
+          entitlementCheckedAt: new Date().toISOString(),
+        },
+      });
+
+      return {
+        ok: true,
+        message: result.message,
+      };
+    },
+    openCustomerCenter: async (): Promise<ActionResult> => {
+      const result = await presentCustomerCenter();
+
+      if (!result.success) {
+        return {
+          ok: false,
+          reason: 'config',
+          message: result.message,
+        };
+      }
+
+      const current = stateRef.current;
+      commitState({
+        ...current,
+        subscription: {
+          isPremium: result.isPremium || current.subscription.isPremium,
           entitlementCheckedAt: new Date().toISOString(),
         },
       });

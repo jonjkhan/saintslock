@@ -223,6 +223,13 @@ export function SaintsLockApp() {
     setScreen('home');
   };
 
+  const handleOpenCustomerCenter = async () => {
+    const result = await actions.openCustomerCenter();
+    if (!result.ok) {
+      setHomeBannerMessage(result.message ?? 'Customer Center is unavailable.');
+    }
+  };
+
   if (!state.isReady) {
     return (
       <ScreenShell>
@@ -322,6 +329,7 @@ export function SaintsLockApp() {
         <SettingsScreen
           isPremium={isPremium}
           onBack={() => setScreen('home')}
+          onOpenCustomerCenter={() => void handleOpenCustomerCenter()}
           onResetTodayStats={() => {
             void actions.resetTodayStats();
             setHomeBannerMessage("Today's stats were reset.");

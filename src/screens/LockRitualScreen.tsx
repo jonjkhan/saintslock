@@ -75,9 +75,15 @@ export function LockRitualScreen({
       </View>
 
       <AppCard>
-        <Text style={styles.contentType}>{contentItem.title}</Text>
-        <Text style={styles.contentText}>{contentItem.text}</Text>
-        {contentItem.attribution ? (
+        <Text style={styles.contentType}>
+          {contentItem.type === 'scripture' ? 'Scripture' : contentItem.title}
+        </Text>
+        <Text style={styles.contentText}>
+          {contentItem.type === 'scripture' ? `"${contentItem.text}"` : contentItem.text}
+        </Text>
+        {contentItem.reference ? (
+          <Text style={styles.attribution}>- {contentItem.reference}</Text>
+        ) : contentItem.attribution ? (
           <Text style={styles.attribution}>{contentItem.attribution}</Text>
         ) : null}
       </AppCard>
@@ -148,8 +154,8 @@ const styles = StyleSheet.create({
   contentText: {
     color: colors.text,
     fontFamily: typography.headingFamily,
-    fontSize: 28,
-    lineHeight: 38,
+    fontSize: 26,
+    lineHeight: 36,
   },
   attribution: {
     color: colors.mutedText,

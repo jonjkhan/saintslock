@@ -25,6 +25,7 @@ interface SettingsScreenProps {
   onSelectUnlockWindow: (minutes: UnlockWindowMinutes) => void;
   onToggleStrictMode: (enabled: boolean) => void;
   onRestorePurchases: () => void;
+  onOpenCustomerCenter: () => void;
   onResetTodayStats: () => void;
 }
 
@@ -40,6 +41,7 @@ export function SettingsScreen({
   onSelectUnlockWindow,
   onToggleStrictMode,
   onRestorePurchases,
+  onOpenCustomerCenter,
   onResetTodayStats,
 }: SettingsScreenProps) {
   return (
@@ -109,6 +111,7 @@ export function SettingsScreen({
       <AppCard>
         <Text style={styles.sectionLabel}>Helpers</Text>
         <View style={styles.buttonStack}>
+          <AppButton label="Manage subscription" onPress={onOpenCustomerCenter} variant="secondary" />
           <AppButton label="Restore purchases" onPress={onRestorePurchases} variant="secondary" />
           <AppButton label="Reset today's stats" onPress={onResetTodayStats} variant="ghost" />
         </View>

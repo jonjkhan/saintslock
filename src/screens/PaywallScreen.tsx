@@ -33,12 +33,13 @@ export function PaywallScreen({
           <Text style={styles.planName}>SaintsLock Premium</Text>
           <Text style={styles.title}>{headline}</Text>
           <Text style={styles.subtitle}>
-            Premium unlocks unlimited app locks and daily prayer pauses.
+            Start Premium to open the RevenueCat paywall with your configured subscription
+            options.
           </Text>
         </View>
 
         <AppCard>
-          <Text style={styles.price}>$4.99/month</Text>
+          <Text style={styles.price}>Subscription options</Text>
           <View style={styles.features}>
             <PaywallFeatureRow text="Unlimited blocked apps" />
             <PaywallFeatureRow text="Unlimited daily prayer unlocks" />
@@ -111,4 +112,3 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
-

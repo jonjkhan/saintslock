@@ -4,10 +4,23 @@
     "slug": "saintslock",
     "version": "1.0.0",
     "orientation": "portrait",
+    "ios": {
+      "bundleIdentifier": "com.jonathankhan.saintslock",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.jonathankhan.saintslock"
+    },
     "userInterfaceStyle": "dark",
     "assetBundlePatterns": [
       "**/*"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e1a04513-d88a-4349-b75e-8697d4c21dde"
+      }
+    }
   }
 }
-

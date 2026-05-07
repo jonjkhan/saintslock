@@ -37,6 +37,7 @@ export interface RitualContentItem {
   type: RitualContentType;
   title: string;
   text: string;
+  reference?: string;
   attribution?: string;
 }
 
@@ -58,4 +59,3 @@ export interface ActionResult {
   reason?: 'paywall' | 'limit' | 'config' | 'validation';
   message?: string;
 }
-

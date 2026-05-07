@@ -3,7 +3,13 @@ declare const __DEV__: boolean;
 declare namespace NodeJS {
   interface ProcessEnv {
     EXPO_PUBLIC_REVENUECAT_PUBLIC_SDK_KEY?: string;
+    EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY?: string;
+    EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY?: string;
+    EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?: string;
     EXPO_PUBLIC_REVENUECAT_MONTHLY_PRODUCT_ID?: string;
+    EXPO_PUBLIC_REVENUECAT_MONTHLY_PACKAGE_ID?: string;
+    EXPO_PUBLIC_REVENUECAT_YEARLY_PACKAGE_ID?: string;
+    EXPO_PUBLIC_REVENUECAT_LIFETIME_PACKAGE_ID?: string;
     EXPO_PUBLIC_ENABLE_MOCK_PREMIUM?: string;
     SAINTSLOCK_MONTHLY?: string;
   }
@@ -12,4 +18,3 @@ declare namespace NodeJS {
 declare const process: {
   env: NodeJS.ProcessEnv;
 };
-
