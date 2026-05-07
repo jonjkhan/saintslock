@@ -21,8 +21,9 @@ import {
 } from '../services/storage';
 import {
   configurePurchases,
+  getSubscriptionCatalog,
   presentCustomerCenter,
-  presentPremiumPaywall,
+  purchaseMonthly,
   registerCustomerInfoListener,
   refreshCustomerInfo,
   restorePurchases,
@@ -442,10 +443,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     },
     purchasePremium: async (): Promise<ActionResult> => {
+      console.log('[purchase] actions.purchasePremium() started');
       await trackEvent('purchase_started');
-      const result = await presentPremiumPaywall();
+      const catalog = await getSubscriptionCatalog();
+      console.log('[purchase] subscription catalog before purchase', catalog);
+
+      const result = await purchaseMonthly();
+      console.log('[purchase] purchaseMonthly() result', result);
 
       if (!result.success) {
+        console.warn('[purchase] purchasePremium() failed', result);
         return {
           ok: false,
           reason: 'config',
@@ -462,6 +469,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         },
       });
       await trackEvent('purchase_completed');
+      console.log('[purchase] purchasePremium() completed successfully', {
+        isPremium: result.isPremium,
+        message: result.message,
+      });
 
       return {
         ok: true,

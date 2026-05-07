@@ -177,24 +177,42 @@ export function SaintsLockApp() {
   };
 
   const handleStartPremium = async () => {
+    console.log('[purchase] Start Premium button pressed', {
+      paywallVisible: Boolean(paywall),
+      paywallLoading,
+    });
     setPaywallLoading(true);
-    const result = await actions.purchasePremium();
-    setPaywallLoading(false);
+    try {
+      const result = await actions.purchasePremium();
+      console.log('[purchase] handleStartPremium() action result', result);
 
-    if (result.ok) {
-      setHomeBannerMessage(result.message ?? 'Premium unlocked.');
-      setPaywall(null);
-      return;
+      if (result.ok) {
+        setHomeBannerMessage(result.message ?? 'Premium unlocked.');
+        setPaywall(null);
+        return;
+      }
+
+      setPaywall((currentPaywall) =>
+        currentPaywall
+          ? {
+              ...currentPaywall,
+              feedbackMessage: result.message,
+            }
+          : currentPaywall
+      );
+    } catch (error) {
+      console.error('[purchase] handleStartPremium() threw unexpectedly', error);
+      setPaywall((currentPaywall) =>
+        currentPaywall
+          ? {
+              ...currentPaywall,
+              feedbackMessage: 'Something went wrong while starting the purchase.',
+            }
+          : currentPaywall
+      );
+    } finally {
+      setPaywallLoading(false);
     }
-
-    setPaywall((currentPaywall) =>
-      currentPaywall
-        ? {
-            ...currentPaywall,
-            feedbackMessage: result.message,
-          }
-        : currentPaywall
-    );
   };
 
   const handleRestore = async () => {

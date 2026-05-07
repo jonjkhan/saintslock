@@ -69,6 +69,15 @@ export const purchasesConfig = {
   isConfigured: Boolean(resolveApiKey() || mockPremiumEnabled),
 };
 
+function logSubscriptionDebug(message: string, details?: unknown) {
+  if (details === undefined) {
+    console.log(`[subscription] ${message}`);
+    return;
+  }
+
+  console.log(`[subscription] ${message}`, details);
+}
+
 function resolveApiKey() {
   if (Platform.OS === 'ios') {
     return appleApiKey ?? null;
@@ -171,31 +180,49 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
 }
 
 async function ensureConfigured() {
+  logSubscriptionDebug('ensureConfigured() called', {
+    platform: Platform.OS,
+    mockPremiumEnabled,
+    isNativePurchasesPlatform,
+    hasResolvedApiKey: Boolean(resolveApiKey()),
+  });
+
   if (mockPremiumEnabled) {
+    logSubscriptionDebug('ensureConfigured() short-circuited because mock premium is enabled');
     return false;
   }
 
   if (!isNativePurchasesPlatform) {
+    logSubscriptionDebug('ensureConfigured() short-circuited because platform is not iOS/Android');
     return false;
   }
 
   const apiKey = resolveApiKey();
   if (!apiKey) {
+    logSubscriptionDebug('ensureConfigured() could not find an API key');
     return false;
   }
 
   const alreadyConfigured = await Purchases.isConfigured().catch(() => false);
+  logSubscriptionDebug('Purchases.isConfigured() result', {
+    alreadyConfigured,
+  });
   if (!alreadyConfigured) {
     if (__DEV__) {
       Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
     }
 
+    logSubscriptionDebug('Calling Purchases.configure()', {
+      apiKeyPrefix: apiKey.slice(0, 8),
+      entitlementId,
+    });
     Purchases.configure({
       apiKey,
       shouldShowInAppMessagesAutomatically: true,
     });
   }
 
+  logSubscriptionDebug('ensureConfigured() completed successfully');
   return true;
 }
 
@@ -351,8 +378,10 @@ export async function refreshCustomerInfo(
 export const isPremium = (subscription: SubscriptionState) => subscription.isPremium;
 
 export async function getSubscriptionCatalog(): Promise<SubscriptionCatalog | null> {
+  logSubscriptionDebug('getSubscriptionCatalog() called');
   const configured = await ensureConfigured();
   if (!configured) {
+    logSubscriptionDebug('getSubscriptionCatalog() returning null because RevenueCat is not configured');
     return null;
   }
 
@@ -365,6 +394,17 @@ export async function getSubscriptionCatalog(): Promise<SubscriptionCatalog | nu
   try {
     const offerings = await Purchases.getOfferings();
     const currentOffering = offerings.current;
+    logSubscriptionDebug('getSubscriptionCatalog() loaded offerings', {
+      currentOfferingId: currentOffering?.identifier ?? null,
+      availablePackages:
+        currentOffering?.availablePackages.map((aPackage) => ({
+          identifier: aPackage.identifier,
+          packageType: aPackage.packageType,
+          productIdentifier: aPackage.product.identifier,
+          productTitle: aPackage.product.title,
+          priceString: aPackage.product.priceString,
+        })) ?? [],
+    });
 
     return {
       currentOfferingId: currentOffering?.identifier ?? null,
@@ -379,7 +419,14 @@ export async function getSubscriptionCatalog(): Promise<SubscriptionCatalog | nu
 export async function purchasePackageById(
   packageId: SubscriptionPackageId
 ): Promise<PurchaseResult> {
+  logSubscriptionDebug('purchasePackageById() called', {
+    packageId,
+    entitlementId,
+    packageIdentifiers,
+  });
+
   if (mockPremiumEnabled) {
+    logSubscriptionDebug('purchasePackageById() short-circuited because mock premium is enabled');
     return {
       success: true,
       isPremium: true,
@@ -390,6 +437,7 @@ export async function purchasePackageById(
 
   const configured = await ensureConfigured();
   if (!configured) {
+    logSubscriptionDebug('purchasePackageById() aborted because RevenueCat is not configured');
     return {
       success: false,
       isPremium: false,
@@ -399,6 +447,9 @@ export async function purchasePackageById(
 
   const configurationIssue = getConfigurationValidationMessage();
   if (configurationIssue) {
+    logSubscriptionDebug('purchasePackageById() aborted because configuration is invalid', {
+      configurationIssue,
+    });
     return {
       success: false,
       isPremium: false,
@@ -408,8 +459,20 @@ export async function purchasePackageById(
   }
 
   try {
+    logSubscriptionDebug('purchasePackageById() fetching offerings');
     const offerings = await Purchases.getOfferings();
     const currentOffering = offerings.current;
+    logSubscriptionDebug('purchasePackageById() offerings loaded', {
+      currentOfferingId: currentOffering?.identifier ?? null,
+      availablePackages:
+        currentOffering?.availablePackages.map((aPackage) => ({
+          identifier: aPackage.identifier,
+          packageType: aPackage.packageType,
+          productIdentifier: aPackage.product.identifier,
+          productTitle: aPackage.product.title,
+          priceString: aPackage.product.priceString,
+        })) ?? [],
+    });
 
     if (!currentOffering) {
       return {
@@ -421,6 +484,18 @@ export async function purchasePackageById(
     }
 
     const selectedPackage = resolvePackage(currentOffering, packageId);
+    logSubscriptionDebug('purchasePackageById() selected package result', {
+      packageId,
+      selectedPackage: selectedPackage
+        ? {
+            identifier: selectedPackage.identifier,
+            packageType: selectedPackage.packageType,
+            productIdentifier: selectedPackage.product.identifier,
+            productTitle: selectedPackage.product.title,
+            priceString: selectedPackage.product.priceString,
+          }
+        : null,
+    });
     if (!selectedPackage) {
       return {
         success: false,
@@ -429,8 +504,18 @@ export async function purchasePackageById(
       };
     }
 
+    logSubscriptionDebug('Calling Purchases.purchasePackage()', {
+      packageId,
+      packageIdentifier: selectedPackage.identifier,
+      productIdentifier: selectedPackage.product.identifier,
+    });
     const purchaseResult = await Purchases.purchasePackage(selectedPackage);
     const premiumUnlocked = hasActivePremiumEntitlement(purchaseResult.customerInfo);
+    logSubscriptionDebug('Purchases.purchasePackage() resolved', {
+      packageId,
+      premiumUnlocked,
+      activeEntitlements: Object.keys(purchaseResult.customerInfo.entitlements.active),
+    });
 
     return {
       success: premiumUnlocked,
@@ -453,10 +538,14 @@ export async function purchasePackageById(
 }
 
 export async function purchaseMonthly(): Promise<PurchaseResult> {
+  logSubscriptionDebug('purchaseMonthly() called');
   return purchasePackageById('monthly');
 }
 
 export async function presentPremiumPaywall(): Promise<PurchaseResult> {
+  logSubscriptionDebug('presentPremiumPaywall() called', {
+    entitlementId,
+  });
   if (mockPremiumEnabled) {
     return {
       success: true,
@@ -485,9 +574,15 @@ export async function presentPremiumPaywall(): Promise<PurchaseResult> {
   }
 
   try {
+    logSubscriptionDebug('Calling RevenueCatUI.presentPaywallIfNeeded()', {
+      entitlementId,
+    });
     const paywallResult = await RevenueCatUI.presentPaywallIfNeeded({
       requiredEntitlementIdentifier: entitlementId,
       displayCloseButton: true,
+    });
+    logSubscriptionDebug('RevenueCatUI.presentPaywallIfNeeded() resolved', {
+      paywallResult,
     });
 
     if (
