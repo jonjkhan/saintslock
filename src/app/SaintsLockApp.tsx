@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenShell } from '../components/ScreenShell';
+import { APP_LINKS } from '../constants/links';
 import { useAppContext } from '../context/AppContext';
 import { trackEvent } from '../services/analytics';
 import { colors, spacing, typography } from '../theme/tokens';
@@ -237,7 +238,7 @@ export function SaintsLockApp() {
           <ActivityIndicator color={colors.accent} size="large" />
           <Text style={styles.loadingTitle}>Preparing your rule</Text>
           <Text style={styles.loadingSubtitle}>
-            Loading settings, stats, and demo blocking state.
+            Loading settings, progress, and your current rule.
           </Text>
         </View>
       </ScreenShell>
@@ -330,11 +331,9 @@ export function SaintsLockApp() {
           isPremium={isPremium}
           onBack={() => setScreen('home')}
           onOpenCustomerCenter={() => void handleOpenCustomerCenter()}
-          onResetTodayStats={() => {
-            void actions.resetTodayStats();
-            setHomeBannerMessage("Today's stats were reset.");
-            setScreen('home');
-          }}
+          onOpenPrivacy={() => void Linking.openURL(APP_LINKS.privacyPolicy)}
+          onOpenSupport={() => void Linking.openURL(APP_LINKS.support)}
+          onOpenTerms={() => void Linking.openURL(APP_LINKS.termsOfUse)}
           onRestorePurchases={() => void handleRestoreFromSettings()}
           onSelectDuration={handleSelectDuration}
           onSelectUnlockWindow={handleSelectUnlockWindow}
@@ -357,6 +356,8 @@ export function SaintsLockApp() {
         headline={paywall?.headline ?? 'Keep your rule of life going.'}
         loading={paywallLoading}
         onClose={() => setPaywall(null)}
+        onOpenPrivacy={() => void Linking.openURL(APP_LINKS.privacyPolicy)}
+        onOpenTerms={() => void Linking.openURL(APP_LINKS.termsOfUse)}
         onRestore={() => void handleRestore()}
         onStartPremium={() => void handleStartPremium()}
         visible={Boolean(paywall)}

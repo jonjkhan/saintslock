@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '../components/AppButton';
 import { AppCard } from '../components/AppCard';
@@ -15,6 +15,8 @@ interface PaywallScreenProps {
   onStartPremium: () => void;
   onRestore: () => void;
   onClose: () => void;
+  onOpenPrivacy: () => void;
+  onOpenTerms: () => void;
 }
 
 export function PaywallScreen({
@@ -25,6 +27,8 @@ export function PaywallScreen({
   onStartPremium,
   onRestore,
   onClose,
+  onOpenPrivacy,
+  onOpenTerms,
 }: PaywallScreenProps) {
   return (
     <Modal animationType="slide" presentationStyle="fullScreen" visible={visible}>
@@ -33,20 +37,19 @@ export function PaywallScreen({
           <Text style={styles.planName}>SaintsLock Premium</Text>
           <Text style={styles.title}>{headline}</Text>
           <Text style={styles.subtitle}>
-            Start Premium to open the RevenueCat paywall with your configured subscription
-            options.
+            Expand your rule with more protected apps, more prayer resets, and
+            longer reset options.
           </Text>
         </View>
 
         <AppCard>
-          <Text style={styles.price}>Subscription options</Text>
+          <Text style={styles.price}>$4.99/month</Text>
           <View style={styles.features}>
             <PaywallFeatureRow text="Unlimited blocked apps" />
-            <PaywallFeatureRow text="Unlimited daily prayer unlocks" />
-            <PaywallFeatureRow text="Longer and customizable ritual lengths" />
-            <PaywallFeatureRow text="Strict Mode" />
-            <PaywallFeatureRow text="Weekly spiritual discipline report" />
-            <PaywallFeatureRow text="More prayers, psalms, and patristic reflections" />
+            <PaywallFeatureRow text="Unlimited daily prayer resets" />
+            <PaywallFeatureRow text="Longer ritual lengths" />
+            <PaywallFeatureRow text="Longer unlock windows" />
+            <PaywallFeatureRow text="More prayers and reflections" />
           </View>
         </AppCard>
 
@@ -60,6 +63,23 @@ export function PaywallScreen({
           <AppButton label="Start Premium" loading={loading} onPress={onStartPremium} />
           <AppButton label="Restore Purchase" onPress={onRestore} variant="secondary" />
           <AppButton label="Not now" onPress={onClose} variant="ghost" />
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>SaintsLock Premium</Text>
+          <Text style={styles.footerText}>$4.99/month</Text>
+          <Text style={styles.footerText}>Auto-renews monthly until cancelled.</Text>
+          <Text style={styles.footerText}>
+            Manage or cancel anytime in App Store subscriptions.
+          </Text>
+          <View style={styles.linkRow}>
+            <Pressable onPress={onOpenTerms}>
+              <Text style={styles.footerLink}>Terms of Use</Text>
+            </Pressable>
+            <Pressable onPress={onOpenPrivacy}>
+              <Text style={styles.footerLink}>Privacy Policy</Text>
+            </Pressable>
+          </View>
         </View>
       </ScreenShell>
     </Modal>
@@ -110,5 +130,27 @@ const styles = StyleSheet.create({
     fontFamily: typography.bodyFamily,
     fontSize: 14,
     lineHeight: 22,
+  },
+  footer: {
+    gap: spacing.xs,
+  },
+  footerText: {
+    color: colors.mutedText,
+    fontFamily: typography.bodyFamily,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  linkRow: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  footerLink: {
+    color: colors.accent,
+    fontFamily: typography.bodyFamily,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

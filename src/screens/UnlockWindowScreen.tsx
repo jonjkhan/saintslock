@@ -25,7 +25,7 @@ export function UnlockWindowScreen({
   return (
     <ScreenShell
       title="After you complete a ritual, how long should the app stay open?"
-      subtitle="This unlock window is used for the demo blocking flow."
+      subtitle="Choose how long SaintsLock should keep the app open after a completed reset."
     >
       <View style={styles.optionsGrid}>
         {UNLOCK_WINDOW_OPTIONS.map((minutes) => (

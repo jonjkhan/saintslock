@@ -23,7 +23,7 @@ export function AppSelectionScreen({
   return (
     <ScreenShell
       title="Choose the apps you want SaintsLock to interrupt."
-      subtitle="For this MVP, SaintsLock runs an honest in-app demo ritual before access."
+      subtitle="Choose where SaintsLock should place a short prayerful pause before access."
     >
       <View style={styles.optionsGrid}>
         {DISTRACTING_APPS.map((appName) => (
@@ -37,7 +37,7 @@ export function AppSelectionScreen({
         ))}
       </View>
 
-      <Text style={styles.helper}>
+      <Text style={styles.helperText}>
         Free includes one app lock. Premium unlocks unlimited app locks.
       </Text>
 
@@ -56,11 +56,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.md,
   },
-  helper: {
+  helperText: {
     color: colors.mutedText,
     fontFamily: typography.bodyFamily,
     fontSize: 14,
     lineHeight: 22,
   },
 });
-

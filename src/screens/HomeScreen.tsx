@@ -69,13 +69,13 @@ export function HomeScreen({
         <Text style={styles.sectionLabel}>Today's Rule</Text>
         <Text style={styles.ruleText}>
           {selectedApps.length > 0
-            ? `${selectedApps.join(' · ')} · ${ritualDurationSeconds}s pause · ${unlockWindowMinutes} min unlock`
+            ? `${selectedApps.join(' \u00b7 ')} \u00b7 ${ritualDurationSeconds}s pause \u00b7 ${unlockWindowMinutes} min unlock`
             : 'Choose an app to begin your first rule.'}
         </Text>
       </AppCard>
 
       <AppCard>
-        <Text style={styles.sectionLabel}>Demo target</Text>
+        <Text style={styles.sectionLabel}>Protected apps</Text>
         {selectedApps.length > 0 ? (
           <View style={styles.optionsGrid}>
             {selectedApps.map((appName) => (
@@ -100,15 +100,15 @@ export function HomeScreen({
       </AppCard>
 
       <AppCard>
-        <Text style={styles.sectionLabel}>Demo lock ritual</Text>
+        <Text style={styles.sectionLabel}>Prayer reset</Text>
         <Text style={styles.helperText}>
-          Native blocking is not wired yet in this build. This polished in-app ritual
-          simulates the unlock loop honestly.
+          Pause, pray, and return with intention before opening the apps that most
+          easily pull your attention away.
         </Text>
         <View style={styles.ctaBlock}>
           <AppButton
             disabled={!selectedDemoApp}
-            label="Start Demo Lock Ritual"
+            label="Start Prayer Reset"
             onPress={onStartRitual}
           />
         </View>

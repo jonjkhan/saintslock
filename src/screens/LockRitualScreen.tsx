@@ -70,7 +70,7 @@ export function LockRitualScreen({
   return (
     <ScreenShell>
       <View style={styles.headerBlock}>
-        <Text style={styles.targetLabel}>Simulating {targetApp}</Text>
+        <Text style={styles.targetLabel}>Prayer reset for {targetApp}</Text>
         <Text style={styles.title}>Pause.</Text>
       </View>
 

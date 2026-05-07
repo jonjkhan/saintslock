@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '../components/AppButton';
 import { AppCard } from '../components/AppCard';
@@ -26,7 +26,9 @@ interface SettingsScreenProps {
   onToggleStrictMode: (enabled: boolean) => void;
   onRestorePurchases: () => void;
   onOpenCustomerCenter: () => void;
-  onResetTodayStats: () => void;
+  onOpenPrivacy: () => void;
+  onOpenTerms: () => void;
+  onOpenSupport: () => void;
 }
 
 export function SettingsScreen({
@@ -42,7 +44,9 @@ export function SettingsScreen({
   onToggleStrictMode,
   onRestorePurchases,
   onOpenCustomerCenter,
-  onResetTodayStats,
+  onOpenPrivacy,
+  onOpenTerms,
+  onOpenSupport,
 }: SettingsScreenProps) {
   return (
     <ScreenShell
@@ -97,7 +101,7 @@ export function SettingsScreen({
       <AppCard>
         <Text style={styles.sectionLabel}>Strict Mode</Text>
         <Text style={styles.helperText}>
-          Strict Mode is a premium-only placeholder for a future no-bypass flow.
+          Strict Mode is included with Premium.
         </Text>
         <View style={styles.strictModeRow}>
           <AppButton
@@ -109,18 +113,26 @@ export function SettingsScreen({
       </AppCard>
 
       <AppCard>
-        <Text style={styles.sectionLabel}>Helpers</Text>
+        <Text style={styles.sectionLabel}>Subscription</Text>
         <View style={styles.buttonStack}>
           <AppButton label="Manage subscription" onPress={onOpenCustomerCenter} variant="secondary" />
           <AppButton label="Restore purchases" onPress={onRestorePurchases} variant="secondary" />
-          <AppButton label="Reset today's stats" onPress={onResetTodayStats} variant="ghost" />
         </View>
       </AppCard>
 
       <AppCard>
-        <Text style={styles.sectionLabel}>Legal</Text>
-        <Text style={styles.helperText}>Privacy Policy placeholder</Text>
-        <Text style={styles.helperText}>Terms of Use placeholder</Text>
+        <Text style={styles.sectionLabel}>Legal & Support</Text>
+        <View style={styles.linkStack}>
+          <Pressable onPress={onOpenPrivacy}>
+            <Text style={styles.linkText}>Privacy Policy</Text>
+          </Pressable>
+          <Pressable onPress={onOpenTerms}>
+            <Text style={styles.linkText}>Terms of Use</Text>
+          </Pressable>
+          <Pressable onPress={onOpenSupport}>
+            <Text style={styles.linkText}>Support</Text>
+          </Pressable>
+        </View>
       </AppCard>
 
       <AppButton label="Back to Home" onPress={onBack} />
@@ -154,5 +166,14 @@ const styles = StyleSheet.create({
   },
   buttonStack: {
     gap: spacing.md,
+  },
+  linkStack: {
+    gap: spacing.md,
+  },
+  linkText: {
+    color: colors.accent,
+    fontFamily: typography.bodyFamily,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
