@@ -39,6 +39,11 @@ const withSaintsLockScreenTime = (config) => {
   });
 
   /*
+   * Development-signing note
+   * - EAS cloud internal/development iOS builds are Ad Hoc signed.
+   * - Family Controls (Development) must be tested through local development signing/Xcode.
+   * - Family Controls (Distribution) is required before TestFlight/App Store builds can ship it.
+   *
    * TODO Phase 2+
    * - Add Screen Time-related extension targets:
    *   - ShieldConfiguration

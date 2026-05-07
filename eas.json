@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "SAINTSLOCK_ENABLE_FAMILY_CONTROLS_DEV": "true"
+        "SAINTSLOCK_ENABLE_FAMILY_CONTROLS_DEV": "false"
       }
     },
     "preview": {
