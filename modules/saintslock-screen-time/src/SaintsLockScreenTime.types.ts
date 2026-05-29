@@ -24,4 +24,6 @@ export interface ScreenTimePickerResult extends ScreenTimeStubResult {
   selection: ScreenTimeSelectionSummary | null;
 }
 
-export interface ScreenTimeShieldResult extends ScreenTimeStubResult {}
+export interface ScreenTimeShieldResult extends ScreenTimeStubResult {
+  selection?: ScreenTimeSelectionSummary | null;
+}

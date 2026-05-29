@@ -1,10 +1,10 @@
 const { withEntitlementsPlist, withInfoPlist } = require('@expo/config-plugins');
 
 const APP_GROUP = 'group.com.jonathankhan.saintslock';
-
 const withSaintsLockScreenTime = (config) => {
-  const enableDevelopmentFamilyControls = Boolean(
-    config.extra?.saintsLockScreenTime?.enableDevelopmentFamilyControls
+  const enableNativeScreenTime = Boolean(
+    config.extra?.saintsLockScreenTime?.enableNativeScreenTime ||
+      config.extra?.saintsLockScreenTime?.enableDevelopmentFamilyControls
   );
 
   config = withEntitlementsPlist(config, (configWithEntitlements) => {
@@ -22,10 +22,16 @@ const withSaintsLockScreenTime = (config) => {
     configWithEntitlements.modResults['com.apple.security.application-groups'] =
       normalizedGroups;
 
-    if (enableDevelopmentFamilyControls) {
+    if (enableNativeScreenTime) {
       configWithEntitlements.modResults['com.apple.developer.family-controls'] = true;
+      configWithEntitlements.modResults[
+        'com.apple.developer.family-controls.app-and-website-usage'
+      ] = true;
     } else {
       delete configWithEntitlements.modResults['com.apple.developer.family-controls'];
+      delete configWithEntitlements.modResults[
+        'com.apple.developer.family-controls.app-and-website-usage'
+      ];
     }
 
     return configWithEntitlements;
@@ -33,7 +39,8 @@ const withSaintsLockScreenTime = (config) => {
 
   config = withInfoPlist(config, (configWithInfoPlist) => {
     configWithInfoPlist.modResults.SaintsLockEnableDevelopmentFamilyControls =
-      enableDevelopmentFamilyControls;
+      enableNativeScreenTime;
+    configWithInfoPlist.modResults.SaintsLockEnableNativeScreenTime = enableNativeScreenTime;
 
     return configWithInfoPlist;
   });
@@ -41,17 +48,19 @@ const withSaintsLockScreenTime = (config) => {
   /*
    * Development-signing note
    * - EAS cloud internal/development iOS builds are Ad Hoc signed.
-   * - Family Controls (Development) must be tested through local development signing/Xcode.
-   * - Family Controls (Distribution) is required before TestFlight/App Store builds can ship it.
+   * - Keep Screen Time disabled for Ad Hoc profiles.
+   * - Enable Screen Time only for TestFlight/App Store profiles that include
+   *   Family Controls Distribution and App and Website Usage.
    *
    * TODO Phase 2+
-   * - Add Screen Time-related extension targets:
+   * - Add Screen Time-related extension targets in project.pbxproj before
+   *   declaring them in extra.eas.build.experimental.ios.appExtensions:
    *   - ShieldConfiguration
    *   - ShieldAction
    *   - DeviceActivityMonitor
-   * - Add FamilyControls entitlement after Apple approval and native implementation work begin.
-   * - Wire App Group + extension entitlements for every new target.
-   * - Update the Xcode project via config plugin once extension sources exist.
+   * - EAS appExtensions entries must only reference targets that this plugin
+   *   actually creates; otherwise EAS fails while assigning provisioning profiles.
+   * - For now, SaintsLock uses main-app FamilyControls + ManagedSettings only.
    */
 
   return config;

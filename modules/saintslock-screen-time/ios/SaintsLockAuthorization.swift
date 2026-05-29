@@ -31,10 +31,8 @@ struct SaintsLockScreenTimeResult {
 enum SaintsLockAuthorization {
   @MainActor
   static func requestAuthorization() async -> [String: Any] {
-    guard SaintsLockScreenTimeEnvironment.isDevelopmentFamilyControlsEnabled() else {
-      return SaintsLockScreenTimeEnvironment.unavailableForCurrentBuild(
-        "Family Controls development support is disabled in this build."
-      )
+    guard SaintsLockScreenTimeEnvironment.isNativeScreenTimeEnabled() else {
+      return SaintsLockScreenTimeEnvironment.nativeScreenTimeDisabledResult()
     }
 
     #if canImport(FamilyControls)
@@ -65,10 +63,8 @@ enum SaintsLockAuthorization {
 
   @MainActor
   static func getAuthorizationStatus() async -> [String: Any] {
-    guard SaintsLockScreenTimeEnvironment.isDevelopmentFamilyControlsEnabled() else {
-      return SaintsLockScreenTimeEnvironment.unavailableForCurrentBuild(
-        "Family Controls development support is disabled in this build."
-      )
+    guard SaintsLockScreenTimeEnvironment.isNativeScreenTimeEnabled() else {
+      return SaintsLockScreenTimeEnvironment.nativeScreenTimeDisabledResult()
     }
 
     #if canImport(FamilyControls)

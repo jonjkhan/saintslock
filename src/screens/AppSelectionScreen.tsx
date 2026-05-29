@@ -12,9 +12,9 @@ interface AppSelectionScreenProps {
   isPremium: boolean;
   onToggleApp: (appName: string) => void;
   onContinue: () => void;
-  onOpenDevelopmentFamilyControls?: () => void;
-  showDevelopmentFamilyControlsSetup?: boolean;
-  developmentFamilyControlsMessage?: string | null;
+  onOpenNativeScreenTime?: () => void;
+  showNativeScreenTimeSetup?: boolean;
+  nativeScreenTimeMessage?: string | null;
 }
 
 export function AppSelectionScreen({
@@ -22,9 +22,9 @@ export function AppSelectionScreen({
   isPremium,
   onToggleApp,
   onContinue,
-  onOpenDevelopmentFamilyControls,
-  showDevelopmentFamilyControlsSetup = false,
-  developmentFamilyControlsMessage,
+  onOpenNativeScreenTime,
+  showNativeScreenTimeSetup = false,
+  nativeScreenTimeMessage,
 }: AppSelectionScreenProps) {
   return (
     <ScreenShell
@@ -47,19 +47,18 @@ export function AppSelectionScreen({
         Free includes one app lock. Premium unlocks unlimited app locks.
       </Text>
 
-      {showDevelopmentFamilyControlsSetup ? (
-        <View style={styles.developmentSection}>
+      {showNativeScreenTimeSetup ? (
+        <View style={styles.nativeSetupSection}>
           <AppButton
-            label="Set up Screen Time selection (Dev)"
-            onPress={onOpenDevelopmentFamilyControls ?? (() => undefined)}
+            label="Set up app blocking"
+            onPress={onOpenNativeScreenTime ?? (() => undefined)}
             variant="secondary"
           />
           <Text style={styles.helperText}>
-            Development-only iOS setup for Family Controls authorization and
-            app selection testing.
+            Choose apps and categories with Apple's Screen Time picker.
           </Text>
-          {developmentFamilyControlsMessage ? (
-            <Text style={styles.statusText}>{developmentFamilyControlsMessage}</Text>
+          {nativeScreenTimeMessage ? (
+            <Text style={styles.statusText}>{nativeScreenTimeMessage}</Text>
           ) : null}
         </View>
       ) : null}
@@ -85,7 +84,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
   },
-  developmentSection: {
+  nativeSetupSection: {
     gap: spacing.sm,
   },
   statusText: {

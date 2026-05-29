@@ -8,19 +8,19 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "SAINTSLOCK_ENABLE_FAMILY_CONTROLS_DEV": "false"
+        "SAINTSLOCK_ENABLE_SCREEN_TIME": "false"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "SAINTSLOCK_ENABLE_FAMILY_CONTROLS_DEV": "false"
+        "SAINTSLOCK_ENABLE_SCREEN_TIME": "false"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "SAINTSLOCK_ENABLE_FAMILY_CONTROLS_DEV": "false"
+        "SAINTSLOCK_ENABLE_SCREEN_TIME": "true"
       }
     }
   },

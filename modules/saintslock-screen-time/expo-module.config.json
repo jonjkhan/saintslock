@@ -1,5 +1,10 @@
 {
   "platforms": [
     "apple"
-  ]
+  ],
+  "apple": {
+    "modules": [
+      "SaintsLockScreenTimeModule"
+    ]
+  }
 }

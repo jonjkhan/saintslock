@@ -15,11 +15,21 @@ type SaintsLockScreenTimeNativeModule = {
   clearShield(): Promise<ScreenTimeShieldResult>;
 };
 
+const expectedMethodNames = [
+  'requestAuthorization',
+  'getAuthorizationStatus',
+  'presentFamilyActivityPicker',
+  'applyShield',
+  'clearShield',
+];
+
 let nativeModule: SaintsLockScreenTimeNativeModule | null = null;
+let nativeModuleLoadError: string | null = null;
 
 try {
   nativeModule = requireNativeModule<SaintsLockScreenTimeNativeModule>('SaintsLockScreenTime');
-} catch {
+} catch (error) {
+  nativeModuleLoadError = error instanceof Error ? error.message : String(error);
   nativeModule = null;
 }
 
@@ -31,6 +41,16 @@ const unsupported = (message: string) => ({
 
 export function isNativeModuleAvailable() {
   return Platform.OS === 'ios' && nativeModule !== null;
+}
+
+export function getNativeModuleDiagnostics() {
+  return {
+    moduleName: 'SaintsLockScreenTime',
+    nativeModuleExists: nativeModule !== null,
+    nativeModuleLoadError,
+    expectedMethodNames,
+    exportedMethodNames: nativeModule ? Object.keys(nativeModule) : [],
+  };
 }
 
 export async function requestAuthorization(): Promise<ScreenTimeAuthorizationResult> {

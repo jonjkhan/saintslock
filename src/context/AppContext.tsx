@@ -8,7 +8,11 @@ import {
   getPlanLimits,
 } from '../constants/options';
 import { trackEvent } from '../services/analytics';
-import { blockerService, getMockBlockerSnapshot } from '../services/MockBlockerService';
+import {
+  iosScreenTimeBlockerService,
+  shouldUseNativeScreenTime,
+} from '../services/IOSScreenTimeBlockerService';
+import { blockerService as mockBlockerService, getMockBlockerSnapshot } from '../services/MockBlockerService';
 import {
   loadDailyStats,
   loadLifetimeStats,
@@ -102,6 +106,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const syncBlockerSnapshot = async () => {
+    await getActiveBlockerService().relockExpiredApps();
     const snapshot = await getMockBlockerSnapshot();
     const current = stateRef.current;
     commitState({
@@ -109,6 +114,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       blockerSnapshot: snapshot,
     });
   };
+
+  const getActiveBlockerService = () =>
+    shouldUseNativeScreenTime()
+      ? iosScreenTimeBlockerService
+      : mockBlockerService;
 
   useEffect(() => {
     let mounted = true;
@@ -137,7 +147,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const nextSubscription = await refreshCustomerInfo(subscription);
       const nextDailyStats = normalizeDailyStats(dailyStats);
 
-      await blockerService.setBlockedApps(settings.selectedApps);
+      await getActiveBlockerService().setBlockedApps(settings.selectedApps);
       const blockerSnapshot = await getMockBlockerSnapshot();
 
       if (!mounted) {
@@ -247,7 +257,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ? current.selectedDemoApp
           : uniqueApps[0] ?? null,
       });
-      await blockerService.setBlockedApps(uniqueApps);
+      await getActiveBlockerService().setBlockedApps(uniqueApps);
       await syncBlockerSnapshot();
       await trackEvent('app_selected', {
         selectedCount: uniqueApps.length,
@@ -383,7 +393,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         lifetimeStats: nextLifetime,
       });
 
-      await blockerService.temporarilyUnlock(appId, current.settings.unlockWindowMinutes);
+      await getActiveBlockerService().temporarilyUnlock(
+        appId,
+        current.settings.unlockWindowMinutes
+      );
       await syncBlockerSnapshot();
       await trackEvent('ritual_completed', {
         appId,
@@ -430,7 +443,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         dailyStats: nextDaily,
       });
 
-      await blockerService.temporarilyUnlock(appId, current.settings.unlockWindowMinutes);
+      await getActiveBlockerService().temporarilyUnlock(
+        appId,
+        current.settings.unlockWindowMinutes
+      );
       await syncBlockerSnapshot();
       await trackEvent('bypass_used', {
         appId,

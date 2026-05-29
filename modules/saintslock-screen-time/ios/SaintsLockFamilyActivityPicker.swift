@@ -11,10 +11,8 @@ import UIKit
 
 enum SaintsLockFamilyActivityPicker {
   static func presentPicker() async -> [String: Any] {
-    guard SaintsLockScreenTimeEnvironment.isDevelopmentFamilyControlsEnabled() else {
-      return unavailableResult(
-        "Family Controls development support is disabled in this build."
-      )
+    guard SaintsLockScreenTimeEnvironment.isNativeScreenTimeEnabled() else {
+      return unavailableResult("Native Screen Time support is disabled in this build.")
     }
 
     #if canImport(FamilyControls) && canImport(SwiftUI) && canImport(UIKit)
@@ -137,11 +135,11 @@ private final class PickerCoordinator: ObservableObject {
 
     hasCompleted = true
 
-    let selectionPayload = SaintsLockSelectionCodec.encodeSelection(selection)
+    let selectionPayload = SaintsLockSelectionCodec.summary(for: selection)
     SaintsLockSharedStorage.saveLatestSelectionPayload(selectionPayload)
 
     let message: String
-    if selection.applicationTokenCount + selection.categoryTokenCount + selection.webDomainTokenCount > 0 {
+    if selection.applicationTokens.count + selection.categoryTokens.count + selection.webDomainTokens.count > 0 {
       message = "FamilyActivityPicker completed and returned a selection."
     } else {
       message = "FamilyActivityPicker closed without any selected apps or categories."

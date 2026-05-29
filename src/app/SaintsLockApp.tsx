@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenShell } from '../components/ScreenShell';
 import { APP_LINKS } from '../constants/links';
 import { useAppContext } from '../context/AppContext';
 import { trackEvent } from '../services/analytics';
 import {
-  runDevelopmentFamilyControlsSetup,
-  shouldShowDevelopmentFamilyControlsSetup,
+  formatScreenTimeDiagnostics,
+  runNativeScreenTimeSetup,
+  shouldShowNativeScreenTimeSetup,
 } from '../services/IOSScreenTimeBlockerService';
 import { colors, spacing, typography } from '../theme/tokens';
 import { RitualContentItem } from '../types/models';
@@ -42,8 +43,7 @@ export function SaintsLockApp() {
   const [paywall, setPaywall] = useState<PaywallState | null>(null);
   const [paywallLoading, setPaywallLoading] = useState(false);
   const [homeBannerMessage, setHomeBannerMessage] = useState<string | null>(null);
-  const [developmentFamilyControlsMessage, setDevelopmentFamilyControlsMessage] =
-    useState<string | null>(null);
+  const [nativeScreenTimeMessage, setNativeScreenTimeMessage] = useState<string | null>(null);
   const [ritualSession, setRitualSession] = useState<{
     appId: string;
     contentItem: RitualContentItem;
@@ -113,8 +113,13 @@ export function SaintsLockApp() {
     }
   };
 
-  const handleOpenDevelopmentFamilyControls = async () => {
-    const result = await runDevelopmentFamilyControlsSetup();
+  const handleOpenNativeScreenTime = async () => {
+    const startingDiagnostics = formatScreenTimeDiagnostics();
+    console.log('[screen-time] setup diagnostics before native calls\n' + startingDiagnostics);
+    setNativeScreenTimeMessage(`Screen Time diagnostics:\n${startingDiagnostics}`);
+
+    const result = await runNativeScreenTimeSetup();
+    const endingDiagnostics = formatScreenTimeDiagnostics();
 
     if (result.ok && result.selection) {
       const parts = [
@@ -135,15 +140,19 @@ export function SaintsLockApp() {
           : null,
       ].filter(Boolean);
 
-      setDevelopmentFamilyControlsMessage(
+      const setupMessage =
         parts.length > 0
           ? `${result.message} Selected ${parts.join(', ')}.`
-          : result.message
-      );
+          : result.message;
+      setNativeScreenTimeMessage(setupMessage);
+      Alert.alert('Screen Time setup complete', `${setupMessage}\n\n${endingDiagnostics}`);
+      await actions.selectApps(['Screen Time Selection']);
       return;
     }
 
-    setDevelopmentFamilyControlsMessage(result.message);
+    const failureMessage = `${result.message}\n\n${endingDiagnostics}`;
+    setNativeScreenTimeMessage(failureMessage);
+    Alert.alert('Screen Time setup needs attention', failureMessage);
   };
 
   const handleStartRitual = async () => {
@@ -315,13 +324,13 @@ export function SaintsLockApp() {
 
       {screen === 'appSelection' ? (
         <AppSelectionScreen
-          developmentFamilyControlsMessage={developmentFamilyControlsMessage}
           isPremium={isPremium}
+          nativeScreenTimeMessage={nativeScreenTimeMessage}
           onContinue={() => setScreen('ritualLength')}
-          onOpenDevelopmentFamilyControls={() => void handleOpenDevelopmentFamilyControls()}
+          onOpenNativeScreenTime={() => void handleOpenNativeScreenTime()}
           onToggleApp={handleToggleApp}
           selectedApps={state.settings.selectedApps}
-          showDevelopmentFamilyControlsSetup={shouldShowDevelopmentFamilyControlsSetup()}
+          showNativeScreenTimeSetup={shouldShowNativeScreenTimeSetup()}
         />
       ) : null}
 
