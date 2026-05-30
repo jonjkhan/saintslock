@@ -87,8 +87,8 @@ public class SaintsLockScreenTimeModule: Module {
       return await SaintsLockAuthorization.getAuthorizationStatus()
     }
 
-    AsyncFunction("presentFamilyActivityPicker") { () async -> [String: Any] in
-      return await SaintsLockFamilyActivityPicker.presentPicker()
+    AsyncFunction("presentFamilyActivityPicker") { (options: [String: Any]?) async -> [String: Any] in
+      return await SaintsLockFamilyActivityPicker.presentPicker(options: options)
     }
 
     AsyncFunction("applyShield") { () async -> [String: Any] in
@@ -97,6 +97,10 @@ public class SaintsLockScreenTimeModule: Module {
 
     AsyncFunction("clearShield") { () async -> [String: Any] in
       return SaintsLockManagedSettingsController.clearShield()
+    }
+
+    AsyncFunction("clearProtectedSelection") { () async -> [String: Any] in
+      return SaintsLockManagedSettingsController.clearProtectedSelection()
     }
 
     AsyncFunction("unlockForDuration") { (seconds: Double) async -> [String: Any] in

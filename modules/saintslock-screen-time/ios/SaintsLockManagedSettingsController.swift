@@ -86,6 +86,33 @@ enum SaintsLockManagedSettingsController {
     #endif
   }
 
+  static func clearProtectedSelection() -> [String: Any] {
+    relockWorkItem?.cancel()
+    relockWorkItem = nil
+
+    let clearResult = clearShield()
+    guard clearResult["ok"] as? Bool == true else {
+      return clearResult
+    }
+
+    guard SaintsLockSharedStorage.clearLatestSelection() else {
+      let message = "SaintsLock could not clear the saved Screen Time selection."
+      SaintsLockSharedStorage.saveLastError(message)
+      return SaintsLockScreenTimeResult(
+        ok: false,
+        status: .unsupported,
+        message: message
+      ).toDictionary(extra: ["selection": SaintsLockSelectionCodec.emptySummary()])
+    }
+
+    return SaintsLockScreenTimeEnvironment.shieldResult(
+      ok: true,
+      status: .approved,
+      message: "Protected apps removed.",
+      selection: SaintsLockSelectionCodec.emptySummary()
+    )
+  }
+
   static func unlockForDuration(seconds: Double) -> [String: Any] {
     guard seconds > 0 else {
       let message = "Unlock duration must be greater than zero seconds."

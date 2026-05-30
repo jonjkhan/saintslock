@@ -37,6 +37,20 @@ enum SaintsLockSharedStorage {
     return true
   }
 
+  static func clearLatestSelection() -> Bool {
+    guard let defaults = sharedDefaults() else {
+      return false
+    }
+
+    defaults.removeObject(forKey: latestSelectionKey)
+    defaults.removeObject(forKey: latestEncodedSelectionKey)
+    defaults.set(false, forKey: isShieldAppliedKey)
+    defaults.removeObject(forKey: unlockExpiresAtKey)
+    defaults.removeObject(forKey: lastErrorKey)
+
+    return true
+  }
+
   static func saveShieldApplied(_ isApplied: Bool) {
     sharedDefaults()?.set(isApplied, forKey: isShieldAppliedKey)
   }

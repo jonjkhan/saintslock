@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 import {
   applyShield,
+  clearProtectedSelection,
   clearShield,
   getAuthorizationStatus as getScreenTimeAuthorizationStatus,
   getDiagnostics as getNativeScreenTimeDiagnostics,
@@ -12,6 +13,7 @@ import {
   relockNow,
   requestAuthorization,
   type ScreenTimeDiagnostics,
+  type ScreenTimePickerOptions,
   type ScreenTimePickerResult,
   unlockForDuration,
 } from '../../modules/saintslock-screen-time/src';
@@ -35,6 +37,12 @@ type ScreenTimeSetupResult = {
   selection?: ScreenTimePickerResult['selection'];
   diagnostics: Awaited<ReturnType<typeof getScreenTimeDiagnostics>>;
 };
+
+export type NativeScreenTimeSetupOptions = ScreenTimePickerOptions;
+export type ScreenTimeDiagnosticsSnapshot = Awaited<ReturnType<typeof getScreenTimeDiagnostics>>;
+
+const FREE_SCREEN_TIME_SELECTION_LIMIT_MESSAGE =
+  'Free plan allows 1 individual app. Categories, websites, and multiple apps require Premium.';
 
 let relockTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -346,7 +354,51 @@ function delay(ms: number) {
   });
 }
 
-export async function setupNativeScreenTimeBlocking(): Promise<ScreenTimeSetupResult> {
+function countPickerSelection(selection: ScreenTimePickerResult['selection']) {
+  if (!selection) {
+    return 0;
+  }
+
+  return (
+    selection.applicationTokenCount +
+    selection.categoryTokenCount +
+    selection.webDomainTokenCount
+  );
+}
+
+function isOverSelectionLimit(
+  selection: ScreenTimePickerResult['selection'],
+  options: NativeScreenTimeSetupOptions
+) {
+  if (options.allowUnlimited) {
+    return false;
+  }
+
+  if (!selection) {
+    return false;
+  }
+
+  if (selection.categoryTokenCount > 0 || selection.webDomainTokenCount > 0) {
+    return true;
+  }
+
+  return selection.applicationTokenCount > options.maxSelectionCount;
+}
+
+function selectionLimitMessage(options: NativeScreenTimeSetupOptions) {
+  if (options.maxSelectionCount === 1) {
+    return FREE_SCREEN_TIME_SELECTION_LIMIT_MESSAGE;
+  }
+
+  return `Your current plan allows ${options.maxSelectionCount} protected selections.`;
+}
+
+export async function setupNativeScreenTimeBlocking(
+  options: NativeScreenTimeSetupOptions = {
+    allowUnlimited: false,
+    maxSelectionCount: 1,
+  }
+): Promise<ScreenTimeSetupResult> {
   console.log('[screen-time] setup pressed', await getScreenTimeDiagnostics());
 
   if (!shouldUseNativeScreenTime()) {
@@ -407,14 +459,23 @@ export async function setupNativeScreenTimeBlocking(): Promise<ScreenTimeSetupRe
     }
 
     await delay(700);
-    console.log('[screen-time] calling presentFamilyActivityPicker()');
-    const pickerResult = await presentFamilyActivityPicker();
+    console.log('[screen-time] calling presentFamilyActivityPicker()', options);
+    const pickerResult = await presentFamilyActivityPicker(options);
     console.log('[screen-time] presentFamilyActivityPicker() result', pickerResult);
 
     if (!pickerResult.ok) {
       return {
         ok: false,
         message: pickerResult.message,
+        selection: pickerResult.selection,
+        diagnostics: await getScreenTimeDiagnostics(),
+      };
+    }
+
+    if (isOverSelectionLimit(pickerResult.selection, options)) {
+      return {
+        ok: false,
+        message: selectionLimitMessage(options),
         selection: pickerResult.selection,
         diagnostics: await getScreenTimeDiagnostics(),
       };
@@ -453,6 +514,74 @@ export async function setupNativeScreenTimeBlocking(): Promise<ScreenTimeSetupRe
 
 export const runNativeScreenTimeSetup = setupNativeScreenTimeBlocking;
 export const runDevelopmentFamilyControlsSetup = setupNativeScreenTimeBlocking;
+
+export async function turnOffNativeScreenTimeShielding() {
+  if (!shouldUseNativeScreenTime()) {
+    return {
+      ok: false,
+      message: 'Native Screen Time support is disabled or mock blocker is forced.',
+      diagnostics: await getScreenTimeDiagnostics(),
+    };
+  }
+
+  if (!isNativeModuleAvailable()) {
+    return {
+      ok: false,
+      message: buildNativeUnavailableMessage(),
+      diagnostics: await getScreenTimeDiagnostics(),
+    };
+  }
+
+  try {
+    const result = await clearShield();
+    return {
+      ok: result.ok,
+      message: result.message,
+      diagnostics: await getScreenTimeDiagnostics(),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      message,
+      diagnostics: await getScreenTimeDiagnostics(),
+    };
+  }
+}
+
+export async function removeNativeProtectedApps() {
+  if (!shouldUseNativeScreenTime()) {
+    return {
+      ok: false,
+      message: 'Native Screen Time support is disabled or mock blocker is forced.',
+      diagnostics: await getScreenTimeDiagnostics(),
+    };
+  }
+
+  if (!isNativeModuleAvailable()) {
+    return {
+      ok: false,
+      message: buildNativeUnavailableMessage(),
+      diagnostics: await getScreenTimeDiagnostics(),
+    };
+  }
+
+  try {
+    const result = await clearProtectedSelection();
+    return {
+      ok: result.ok,
+      message: result.message,
+      diagnostics: await getScreenTimeDiagnostics(),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      message,
+      diagnostics: await getScreenTimeDiagnostics(),
+    };
+  }
+}
 
 export function shouldShowNativeScreenTimeSetup() {
   return Platform.OS === 'ios' && isNativeScreenTimeEnabled();

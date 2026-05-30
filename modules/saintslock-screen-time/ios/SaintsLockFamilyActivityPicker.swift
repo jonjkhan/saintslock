@@ -11,7 +11,7 @@ import UIKit
 
 enum SaintsLockFamilyActivityPicker {
   @MainActor
-  static func presentPicker() async -> [String: Any] {
+  static func presentPicker(options: [String: Any]? = nil) async -> [String: Any] {
     guard SaintsLockScreenTimeEnvironment.isNativeScreenTimeEnabled() else {
       return unavailableResult("Native Screen Time support is disabled in this build.")
     }
@@ -49,7 +49,7 @@ enum SaintsLockFamilyActivityPicker {
       return result(ok: false, status: .unsupported, message: message, selection: nil)
     }
 
-    return await presentPicker(from: presenter)
+    return await presentPicker(from: presenter, options: PickerSelectionLimit(options: options))
     #else
     return unavailableResult("FamilyActivityPicker is unavailable in this native build.")
     #endif
@@ -138,9 +138,15 @@ private extension SaintsLockFamilyActivityPicker {
   }
 
   @MainActor
-  static func presentPicker(from presenter: UIViewController) async -> [String: Any] {
+  static func presentPicker(
+    from presenter: UIViewController,
+    options: PickerSelectionLimit
+  ) async -> [String: Any] {
     return await withCheckedContinuation { continuation in
-      let coordinator = PickerCoordinator(continuation: continuation)
+      let coordinator = PickerCoordinator(
+        continuation: continuation,
+        selectionLimit: options
+      )
       let hostingController = UIHostingController(
         rootView: FamilyActivityPickerHostView(coordinator: coordinator)
       )
@@ -159,6 +165,80 @@ private extension SaintsLockFamilyActivityPicker {
 
 }
 
+private struct PickerSelectionLimit {
+  static let freeLimitMessage =
+    "Free plan allows 1 individual app. Categories, websites, and multiple apps require Premium."
+
+  let allowUnlimited: Bool
+  let maxSelectionCount: Int
+
+  init(options: [String: Any]?) {
+    allowUnlimited = Self.boolValue(options?["allowUnlimited"]) ?? false
+    let requestedMaxSelectionCount = Self.intValue(options?["maxSelectionCount"]) ?? 1
+    maxSelectionCount = max(1, requestedMaxSelectionCount)
+  }
+
+  func validationMessage(
+    applicationTokenCount: Int,
+    categoryTokenCount: Int,
+    webDomainTokenCount: Int
+  ) -> String? {
+    guard !allowUnlimited else {
+      return nil
+    }
+
+    if categoryTokenCount > 0 || webDomainTokenCount > 0 {
+      return Self.freeLimitMessage
+    }
+
+    if applicationTokenCount > maxSelectionCount {
+      return Self.freeLimitMessage
+    }
+
+    if maxSelectionCount == 1 {
+      return applicationTokenCount == 1 ? nil : Self.freeLimitMessage
+    }
+
+    return nil
+  }
+
+  private static func boolValue(_ value: Any?) -> Bool? {
+    if let value = value as? Bool {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.boolValue
+    }
+
+    if let value = value as? String {
+      return ["1", "true", "yes"].contains(value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+    }
+
+    return nil
+  }
+
+  private static func intValue(_ value: Any?) -> Int? {
+    if let value = value as? Int {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.intValue
+    }
+
+    if let value = value as? Double {
+      return Int(value)
+    }
+
+    if let value = value as? String {
+      return Int(value.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    return nil
+  }
+}
+
 @available(iOS 16.0, *)
 private final class PickerCoordinatorStorage {
   static let shared = PickerCoordinatorStorage()
@@ -169,18 +249,36 @@ private final class PickerCoordinatorStorage {
 private final class PickerCoordinator: ObservableObject {
   @Published var selection = FamilyActivitySelection()
   @Published var didAppear = false
+  @Published var validationMessage: String?
 
   weak var hostingController: UIViewController?
 
   private let continuation: CheckedContinuation<[String: Any], Never>
+  private let selectionLimit: PickerSelectionLimit
   private var hasCompleted = false
 
-  init(continuation: CheckedContinuation<[String: Any], Never>) {
+  init(
+    continuation: CheckedContinuation<[String: Any], Never>,
+    selectionLimit: PickerSelectionLimit
+  ) {
     self.continuation = continuation
+    self.selectionLimit = selectionLimit
   }
 
   var selectedTokenCount: Int {
     return selection.applicationTokens.count + selection.categoryTokens.count + selection.webDomainTokens.count
+  }
+
+  var selectedApplicationTokenCount: Int {
+    return selection.applicationTokens.count
+  }
+
+  var selectedCategoryTokenCount: Int {
+    return selection.categoryTokens.count
+  }
+
+  var selectedWebDomainTokenCount: Int {
+    return selection.webDomainTokens.count
   }
 
   var hasSelection: Bool {
@@ -191,8 +289,21 @@ private final class PickerCoordinator: ObservableObject {
     didAppear = true
   }
 
+  func refreshValidation() {
+    validationMessage = selectionLimit.validationMessage(
+      applicationTokenCount: selectedApplicationTokenCount,
+      categoryTokenCount: selectedCategoryTokenCount,
+      webDomainTokenCount: selectedWebDomainTokenCount
+    )
+  }
+
   func complete() {
     guard !hasCompleted else {
+      return
+    }
+
+    refreshValidation()
+    if validationMessage != nil {
       return
     }
 
@@ -299,9 +410,20 @@ private struct FamilyActivityPickerHostView: View {
           .multilineTextAlignment(.center)
           .padding(.horizontal, 20)
 
+        if let validationMessage = coordinator.validationMessage {
+          Text(validationMessage)
+            .font(.footnote.weight(.semibold))
+            .foregroundColor(.red)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 20)
+        }
+
         FamilyActivityPicker(selection: $coordinator.selection)
       }
       .navigationBarTitleDisplayMode(.inline)
+      .onChange(of: coordinator.selectedTokenCount) { _ in
+        coordinator.refreshValidation()
+      }
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
           Button("Cancel") {

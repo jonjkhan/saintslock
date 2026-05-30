@@ -12,6 +12,12 @@ import {
 } from '../constants/options';
 import { colors, spacing, typography } from '../theme/tokens';
 import { RitualDurationSeconds, UnlockWindowMinutes } from '../types/models';
+import {
+  formatScreenTimeSelectionSummary,
+  formatScreenTimeShieldStatus,
+  getScreenTimeSelectionCount,
+} from '../utils/screenTimeSummary';
+import type { ScreenTimeDiagnostics } from '../../modules/saintslock-screen-time/src';
 
 interface SettingsScreenProps {
   isPremium: boolean;
@@ -25,6 +31,7 @@ interface SettingsScreenProps {
   onSelectUnlockWindow: (minutes: UnlockWindowMinutes) => void;
   onToggleStrictMode: (enabled: boolean) => void;
   onOpenNativeScreenTime?: () => void;
+  onRemoveProtectedApps?: () => void;
   onRestorePurchases: () => void;
   onOpenCustomerCenter: () => void;
   onOpenPrivacy: () => void;
@@ -32,6 +39,8 @@ interface SettingsScreenProps {
   onOpenSupport: () => void;
   showNativeScreenTimeSetup?: boolean;
   nativeScreenTimeMessage?: string | null;
+  showDebugDiagnostics?: boolean;
+  protectedSelectionDiagnostics?: ScreenTimeDiagnostics | null;
 }
 
 export function SettingsScreen({
@@ -46,6 +55,7 @@ export function SettingsScreen({
   onSelectUnlockWindow,
   onToggleStrictMode,
   onOpenNativeScreenTime,
+  onRemoveProtectedApps,
   onRestorePurchases,
   onOpenCustomerCenter,
   onOpenPrivacy,
@@ -53,40 +63,73 @@ export function SettingsScreen({
   onOpenSupport,
   showNativeScreenTimeSetup = false,
   nativeScreenTimeMessage,
+  showDebugDiagnostics = false,
+  protectedSelectionDiagnostics,
 }: SettingsScreenProps) {
+  const protectedSelectionCount = getScreenTimeSelectionCount(protectedSelectionDiagnostics);
+  const selectionSummary = formatScreenTimeSelectionSummary(
+    protectedSelectionDiagnostics,
+    'selected'
+  );
+  const shieldStatus = formatScreenTimeShieldStatus(protectedSelectionDiagnostics, false);
+  const nativeSetupButtonLabel =
+    protectedSelectionCount > 0 ? 'Change Protected Apps' : 'Choose Protected Apps';
+
   return (
     <ScreenShell
       title="Settings"
       subtitle="Adjust your current rule without losing today's progress."
     >
       <AppCard>
-        <Text style={styles.sectionLabel}>Selected apps</Text>
+        <Text style={styles.sectionLabel}>
+          {showNativeScreenTimeSetup ? 'Protected Apps' : 'Selected apps'}
+        </Text>
         {showNativeScreenTimeSetup ? (
           <View style={styles.nativeSetupBlock}>
+            <Text
+              style={[
+                styles.statusBadge,
+                shieldStatus === 'Shielding active' ? styles.activeStatus : styles.pausedStatus,
+              ]}
+            >
+              {shieldStatus}
+            </Text>
+            <Text style={styles.selectionSummary}>
+              {protectedSelectionCount > 0 ? selectionSummary : 'No apps protected yet'}
+            </Text>
+            <Text style={styles.helperText}>
+              Apple keeps exact app names private. SaintsLock protects your selected
+              Screen Time apps without reading app names.
+            </Text>
             <AppButton
-              label="Set up app blocking"
+              label={nativeSetupButtonLabel}
               onPress={onOpenNativeScreenTime ?? (() => undefined)}
               variant="secondary"
             />
-            <Text style={styles.helperText}>
-              Choose apps and categories with Apple's Screen Time picker.
-            </Text>
-            {nativeScreenTimeMessage ? (
+            {protectedSelectionCount > 0 && onRemoveProtectedApps ? (
+              <AppButton
+                label="Remove Protected Apps"
+                onPress={onRemoveProtectedApps}
+                variant="ghost"
+              />
+            ) : null}
+            {showDebugDiagnostics && nativeScreenTimeMessage ? (
               <Text style={styles.statusText}>{nativeScreenTimeMessage}</Text>
             ) : null}
           </View>
-        ) : null}
-        <View style={styles.optionsGrid}>
-          {DISTRACTING_APPS.map((appName) => (
-            <PillOption
-              key={appName}
-              label={appName}
-              locked={!isPremium && !selectedApps.includes(appName) && selectedApps.length >= 1}
-              onPress={() => onToggleApp(appName)}
-              selected={selectedApps.includes(appName)}
-            />
-          ))}
-        </View>
+        ) : (
+          <View style={styles.optionsGrid}>
+            {DISTRACTING_APPS.map((appName) => (
+              <PillOption
+                key={appName}
+                label={appName}
+                locked={!isPremium && !selectedApps.includes(appName) && selectedApps.length >= 1}
+                onPress={() => onToggleApp(appName)}
+                selected={selectedApps.includes(appName)}
+              />
+            ))}
+          </View>
+        )}
       </AppCard>
 
       <AppCard>
@@ -183,14 +226,38 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   nativeSetupBlock: {
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+    gap: spacing.md,
   },
   statusText: {
     color: colors.accent,
     fontFamily: typography.bodyFamily,
     fontSize: 13,
     lineHeight: 20,
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    fontFamily: typography.bodyFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    overflow: 'hidden',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  activeStatus: {
+    borderColor: colors.success,
+    color: colors.success,
+  },
+  pausedStatus: {
+    borderColor: colors.accent,
+    color: colors.accent,
+  },
+  selectionSummary: {
+    color: colors.text,
+    fontFamily: typography.headingFamily,
+    fontSize: 22,
+    lineHeight: 30,
   },
   strictModeRow: {
     marginTop: spacing.lg,

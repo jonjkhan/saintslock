@@ -2,6 +2,7 @@ import {
   ScreenTimeSelectionSummary,
   ScreenTimeAuthorizationResult,
   ScreenTimeDiagnostics,
+  ScreenTimePickerOptions,
   ScreenTimePickerResult,
   ScreenTimeShieldResult,
 } from './SaintsLockScreenTime.types';
@@ -12,9 +13,10 @@ type SaintsLockScreenTimeNativeModule = {
   getDiagnostics(): Promise<ScreenTimeDiagnostics>;
   requestAuthorization(): Promise<ScreenTimeAuthorizationResult>;
   getAuthorizationStatus(): Promise<ScreenTimeAuthorizationResult>;
-  presentFamilyActivityPicker(): Promise<ScreenTimePickerResult>;
+  presentFamilyActivityPicker(options?: ScreenTimePickerOptions): Promise<ScreenTimePickerResult>;
   applyShield(): Promise<ScreenTimeShieldResult>;
   clearShield(): Promise<ScreenTimeShieldResult>;
+  clearProtectedSelection(): Promise<ScreenTimeShieldResult>;
   unlockForDuration(seconds: number): Promise<ScreenTimeShieldResult>;
   relockNow(): Promise<ScreenTimeShieldResult>;
 };
@@ -26,6 +28,7 @@ const expectedMethodNames = [
   'presentFamilyActivityPicker',
   'applyShield',
   'clearShield',
+  'clearProtectedSelection',
   'unlockForDuration',
   'relockNow',
 ];
@@ -108,7 +111,9 @@ export async function getAuthorizationStatus(): Promise<ScreenTimeAuthorizationR
   return nativeModule.getAuthorizationStatus();
 }
 
-export async function presentFamilyActivityPicker(): Promise<ScreenTimePickerResult> {
+export async function presentFamilyActivityPicker(
+  options?: ScreenTimePickerOptions
+): Promise<ScreenTimePickerResult> {
   if (!nativeModule) {
     return {
       ...unsupported('FamilyActivityPicker is unavailable in this build.'),
@@ -116,7 +121,7 @@ export async function presentFamilyActivityPicker(): Promise<ScreenTimePickerRes
     };
   }
 
-  return nativeModule.presentFamilyActivityPicker();
+  return nativeModule.presentFamilyActivityPicker(options);
 }
 
 export async function applyShield(): Promise<ScreenTimeShieldResult> {
@@ -133,6 +138,14 @@ export async function clearShield(): Promise<ScreenTimeShieldResult> {
   }
 
   return nativeModule.clearShield();
+}
+
+export async function clearProtectedSelection(): Promise<ScreenTimeShieldResult> {
+  if (!nativeModule) {
+    return unsupported('Removing protected apps is unavailable in this build.');
+  }
+
+  return nativeModule.clearProtectedSelection();
 }
 
 export async function unlockForDuration(seconds: number): Promise<ScreenTimeShieldResult> {
@@ -154,6 +167,7 @@ export async function relockNow(): Promise<ScreenTimeShieldResult> {
 export type {
   ScreenTimeAuthorizationResult,
   ScreenTimeDiagnostics,
+  ScreenTimePickerOptions,
   ScreenTimePickerResult,
   ScreenTimeSelectionSummary,
   ScreenTimeShieldResult,

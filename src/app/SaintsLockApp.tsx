@@ -8,7 +8,10 @@ import { trackEvent } from '../services/analytics';
 import {
   formatScreenTimeDiagnostics,
   formatScreenTimeDiagnosticsSnapshot,
+  getScreenTimeDiagnostics,
+  removeNativeProtectedApps,
   runNativeScreenTimeSetup,
+  type ScreenTimeDiagnosticsSnapshot,
   shouldShowNativeScreenTimeSetup,
 } from '../services/IOSScreenTimeBlockerService';
 import { colors, spacing, typography } from '../theme/tokens';
@@ -39,12 +42,16 @@ interface PaywallState {
 }
 
 export function SaintsLockApp() {
-  const { state, isPremium, usage, actions } = useAppContext();
+  const { state, isPremium, limits, usage, actions } = useAppContext();
   const [screen, setScreen] = useState<ScreenName>('loading');
   const [paywall, setPaywall] = useState<PaywallState | null>(null);
   const [paywallLoading, setPaywallLoading] = useState(false);
   const [homeBannerMessage, setHomeBannerMessage] = useState<string | null>(null);
   const [nativeScreenTimeMessage, setNativeScreenTimeMessage] = useState<string | null>(null);
+  const [nativeScreenTimeDiagnostics, setNativeScreenTimeDiagnostics] =
+    useState<ScreenTimeDiagnosticsSnapshot | null>(null);
+  const [showDebugDiagnostics, setShowDebugDiagnostics] = useState(false);
+  const [titleTapCount, setTitleTapCount] = useState(0);
   const [ritualSession, setRitualSession] = useState<{
     appId: string;
     contentItem: RitualContentItem;
@@ -69,10 +76,22 @@ export function SaintsLockApp() {
   }, [screen, state.isReady, state.settings.hasCompletedOnboarding]);
 
   useEffect(() => {
-    if (screen === 'home') {
+    if (screen === 'home' || screen === 'settings') {
       void actions.refreshBlockerSnapshot();
+      void refreshNativeScreenTimeDiagnostics();
     }
   }, [screen]);
+
+  const refreshNativeScreenTimeDiagnostics = async () => {
+    if (!shouldShowNativeScreenTimeSetup()) {
+      setNativeScreenTimeDiagnostics(null);
+      return null;
+    }
+
+    const diagnostics = await getScreenTimeDiagnostics();
+    setNativeScreenTimeDiagnostics(diagnostics);
+    return diagnostics;
+  };
 
   const openPaywall = async (headline: string, feedbackMessage?: string | null) => {
     await trackEvent('paywall_viewed', {
@@ -115,15 +134,20 @@ export function SaintsLockApp() {
   };
 
   const handleOpenNativeScreenTime = async () => {
-    const startingDiagnostics = await formatScreenTimeDiagnostics();
-    console.log('[screen-time] setup diagnostics before native calls\n' + startingDiagnostics);
-    setNativeScreenTimeMessage(`Screen Time diagnostics:\n${startingDiagnostics}`);
+    const startingDiagnostics = __DEV__ ? await formatScreenTimeDiagnostics() : null;
+    if (startingDiagnostics) {
+      console.log('[screen-time] setup diagnostics before native calls\n' + startingDiagnostics);
+    }
 
-    const result = await runNativeScreenTimeSetup();
+    const result = await runNativeScreenTimeSetup({
+      allowUnlimited: isPremium,
+      maxSelectionCount: limits.maxSelectedApps,
+    });
     const endingDiagnostics = formatScreenTimeDiagnosticsSnapshot(result.diagnostics);
+    setNativeScreenTimeDiagnostics(result.diagnostics);
 
     if (result.nextStep === 'chooseApps') {
-      const message = `${result.message}\n\n${endingDiagnostics}`;
+      const message = __DEV__ ? `${result.message}\n\n${endingDiagnostics}` : result.message;
       setNativeScreenTimeMessage(message);
       Alert.alert('Screen Time access approved', message);
       return;
@@ -153,14 +177,42 @@ export function SaintsLockApp() {
           ? `${result.message} Selected ${parts.join(', ')}.`
           : result.message;
       setNativeScreenTimeMessage(setupMessage);
-      Alert.alert('Screen Time setup complete', `${setupMessage}\n\n${endingDiagnostics}`);
+      Alert.alert(
+        'Screen Time setup complete',
+        __DEV__ && showDebugDiagnostics ? `${setupMessage}\n\n${endingDiagnostics}` : setupMessage
+      );
       await actions.selectApps(['Screen Time Selection']);
       return;
     }
 
-    const failureMessage = `${result.message}\n\n${endingDiagnostics}`;
+    const failureMessage =
+      __DEV__ && showDebugDiagnostics ? `${result.message}\n\n${endingDiagnostics}` : result.message;
     setNativeScreenTimeMessage(failureMessage);
     Alert.alert('Screen Time setup needs attention', failureMessage);
+  };
+
+  const handleRemoveNativeProtectedApps = async () => {
+    const result = await removeNativeProtectedApps();
+    setNativeScreenTimeDiagnostics(result.diagnostics);
+    setNativeScreenTimeMessage(result.message);
+    setHomeBannerMessage(result.message);
+
+    if (result.ok) {
+      await actions.selectApps([]);
+    }
+  };
+
+  const handleTitlePress = () => {
+    if (!__DEV__) {
+      return;
+    }
+
+    const nextCount = titleTapCount + 1;
+    setTitleTapCount(nextCount);
+    if (nextCount >= 7) {
+      setShowDebugDiagnostics((current) => !current);
+      setTitleTapCount(0);
+    }
   };
 
   const handleStartRitual = async () => {
@@ -381,8 +433,10 @@ export function SaintsLockApp() {
             )
           }
           onOpenSettings={() => setScreen('settings')}
+          onTitlePress={handleTitlePress}
           onSelectDemoApp={actions.selectDemoApp}
           onStartRitual={() => void handleStartRitual()}
+          protectedSelectionDiagnostics={nativeScreenTimeDiagnostics?.nativeDiagnostics}
           ritualDurationSeconds={state.settings.ritualDurationSeconds}
           selectedApps={state.settings.selectedApps}
           selectedDemoApp={state.selectedDemoApp}
@@ -399,7 +453,11 @@ export function SaintsLockApp() {
           onBypass={handleBypass}
           onExit={handleCloseRitual}
           onReady={handleCompleteRitual}
-          targetApp={ritualSession.appId}
+          targetApp={
+            ritualSession.appId === 'Screen Time Selection'
+              ? 'protected apps'
+              : ritualSession.appId
+          }
         />
       ) : null}
 
@@ -417,6 +475,7 @@ export function SaintsLockApp() {
           onSelectDuration={handleSelectDuration}
           onSelectUnlockWindow={handleSelectUnlockWindow}
           onToggleApp={handleToggleApp}
+          onRemoveProtectedApps={() => void handleRemoveNativeProtectedApps()}
           onToggleStrictMode={async (enabled) => {
             const result = await actions.setStrictModeEnabled(enabled);
             if (!result.ok && result.reason === 'paywall') {
@@ -426,6 +485,8 @@ export function SaintsLockApp() {
           ritualDurationSeconds={state.settings.ritualDurationSeconds}
           selectedApps={state.settings.selectedApps}
           showNativeScreenTimeSetup={shouldShowNativeScreenTimeSetup()}
+          showDebugDiagnostics={showDebugDiagnostics}
+          protectedSelectionDiagnostics={nativeScreenTimeDiagnostics?.nativeDiagnostics}
           strictModeEnabled={state.settings.strictModeEnabled}
           unlockWindowMinutes={state.settings.unlockWindowMinutes}
         />

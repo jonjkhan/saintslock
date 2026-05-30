@@ -1,14 +1,19 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '../components/AppButton';
 import { AppCard } from '../components/AppCard';
-import { PillOption } from '../components/PillOption';
 import { ScreenShell } from '../components/ScreenShell';
 import { StatCard } from '../components/StatCard';
 import { colors, spacing, typography } from '../theme/tokens';
 import { MockBlockerSnapshot } from '../types/models';
 import { formatUnlockExpiry } from '../utils/date';
+import {
+  formatScreenTimeSelectionSummary,
+  formatScreenTimeShieldStatus,
+  getScreenTimeSelectionCount,
+} from '../utils/screenTimeSummary';
+import type { ScreenTimeDiagnostics } from '../../modules/saintslock-screen-time/src';
 
 interface HomeScreenProps {
   selectedApps: string[];
@@ -26,6 +31,8 @@ interface HomeScreenProps {
   onStartRitual: () => void;
   onOpenPaywall: () => void;
   onOpenSettings: () => void;
+  onTitlePress?: () => void;
+  protectedSelectionDiagnostics?: ScreenTimeDiagnostics | null;
 }
 
 export function HomeScreen({
@@ -44,16 +51,35 @@ export function HomeScreen({
   onStartRitual,
   onOpenPaywall,
   onOpenSettings,
+  onTitlePress,
+  protectedSelectionDiagnostics,
 }: HomeScreenProps) {
   const activeUnlock = selectedDemoApp
     ? blockerSnapshot.unlockExpirations[selectedDemoApp]
     : undefined;
+  const protectedSelectionSummary = formatScreenTimeSelectionSummary(
+    protectedSelectionDiagnostics,
+    'protected'
+  );
+  const protectedSelectionCount = getScreenTimeSelectionCount(protectedSelectionDiagnostics);
+  const hasNativeProtectedSelection = protectedSelectionCount > 0;
+  const ruleSelectionText = hasNativeProtectedSelection
+    ? protectedSelectionSummary
+    : selectedApps.length > 0
+      ? `${selectedApps.length} ${selectedApps.length === 1 ? 'app' : 'apps'} protected`
+      : 'No apps protected yet';
+  const shieldStatus = formatScreenTimeShieldStatus(
+    protectedSelectionDiagnostics,
+    Boolean(activeUnlock)
+  );
 
   return (
     <ScreenShell>
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>SaintsLock</Text>
+          <Pressable onPress={onTitlePress}>
+            <Text style={styles.title}>SaintsLock</Text>
+          </Pressable>
           <Text style={styles.subtitle}>Before you scroll, return to God.</Text>
         </View>
         <AppButton label="Settings" onPress={onOpenSettings} variant="ghost" />
@@ -68,33 +94,21 @@ export function HomeScreen({
       <AppCard>
         <Text style={styles.sectionLabel}>Today's Rule</Text>
         <Text style={styles.ruleText}>
-          {selectedApps.length > 0
-            ? `${selectedApps.join(' \u00b7 ')} \u00b7 ${ritualDurationSeconds}s pause \u00b7 ${unlockWindowMinutes} min unlock`
-            : 'Choose an app to begin your first rule.'}
+          {`${ruleSelectionText} \u00b7 ${ritualDurationSeconds}s pause \u00b7 ${unlockWindowMinutes} min unlock`}
         </Text>
       </AppCard>
 
       <AppCard>
         <Text style={styles.sectionLabel}>Protected apps</Text>
-        {selectedApps.length > 0 ? (
-          <View style={styles.optionsGrid}>
-            {selectedApps.map((appName) => (
-              <PillOption
-                key={appName}
-                label={appName}
-                onPress={() => onSelectDemoApp(appName)}
-                selected={selectedDemoApp === appName}
-              />
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.helperText}>
-            No distracting apps selected yet. Open Settings to choose one.
-          </Text>
-        )}
+        <Text style={styles.protectedSummary}>{protectedSelectionSummary}</Text>
+        <Text style={styles.helperText}>{shieldStatus}</Text>
+        <Text style={styles.trustNote}>
+          Apple keeps exact app names private. SaintsLock protects your selected
+          Screen Time apps without reading app names.
+        </Text>
         {activeUnlock ? (
           <Text style={styles.successText}>
-            {selectedDemoApp} unlocked until {formatUnlockExpiry(activeUnlock)}.
+            Protected apps unlocked until {formatUnlockExpiry(activeUnlock)}.
           </Text>
         ) : null}
       </AppCard>
@@ -109,7 +123,12 @@ export function HomeScreen({
           <AppButton
             disabled={!selectedDemoApp}
             label="Start Prayer Reset"
-            onPress={onStartRitual}
+            onPress={() => {
+              if (selectedDemoApp) {
+                onSelectDemoApp(selectedDemoApp);
+              }
+              onStartRitual();
+            }}
           />
         </View>
       </AppCard>
@@ -187,17 +206,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 24,
   },
+  protectedSummary: {
+    color: colors.text,
+    fontFamily: typography.headingFamily,
+    fontSize: 22,
+    lineHeight: 30,
+    marginBottom: spacing.xs,
+  },
+  trustNote: {
+    color: colors.mutedText,
+    fontFamily: typography.bodyFamily,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: spacing.md,
+  },
   successText: {
     color: colors.success,
     fontFamily: typography.bodyFamily,
     fontSize: 14,
     lineHeight: 20,
     marginTop: spacing.md,
-  },
-  optionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
   },
   statsGrid: {
     flexDirection: 'row',

@@ -23,6 +23,11 @@ export interface ScreenTimeSelectionSummary {
   webDomainTokenCount: number;
 }
 
+export interface ScreenTimePickerOptions {
+  allowUnlimited: boolean;
+  maxSelectionCount: number;
+}
+
 export interface ScreenTimePickerResult extends ScreenTimeStubResult {
   success?: boolean;
   cancelled?: boolean;
