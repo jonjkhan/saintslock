@@ -7,6 +7,7 @@ import { useAppContext } from '../context/AppContext';
 import { trackEvent } from '../services/analytics';
 import {
   formatScreenTimeDiagnostics,
+  formatScreenTimeDiagnosticsSnapshot,
   runNativeScreenTimeSetup,
   shouldShowNativeScreenTimeSetup,
 } from '../services/IOSScreenTimeBlockerService';
@@ -114,12 +115,19 @@ export function SaintsLockApp() {
   };
 
   const handleOpenNativeScreenTime = async () => {
-    const startingDiagnostics = formatScreenTimeDiagnostics();
+    const startingDiagnostics = await formatScreenTimeDiagnostics();
     console.log('[screen-time] setup diagnostics before native calls\n' + startingDiagnostics);
     setNativeScreenTimeMessage(`Screen Time diagnostics:\n${startingDiagnostics}`);
 
     const result = await runNativeScreenTimeSetup();
-    const endingDiagnostics = formatScreenTimeDiagnostics();
+    const endingDiagnostics = formatScreenTimeDiagnosticsSnapshot(result.diagnostics);
+
+    if (result.nextStep === 'chooseApps') {
+      const message = `${result.message}\n\n${endingDiagnostics}`;
+      setNativeScreenTimeMessage(message);
+      Alert.alert('Screen Time access approved', message);
+      return;
+    }
 
     if (result.ok && result.selection) {
       const parts = [
@@ -400,6 +408,8 @@ export function SaintsLockApp() {
           isPremium={isPremium}
           onBack={() => setScreen('home')}
           onOpenCustomerCenter={() => void handleOpenCustomerCenter()}
+          nativeScreenTimeMessage={nativeScreenTimeMessage}
+          onOpenNativeScreenTime={() => void handleOpenNativeScreenTime()}
           onOpenPrivacy={() => void Linking.openURL(APP_LINKS.privacyPolicy)}
           onOpenSupport={() => void Linking.openURL(APP_LINKS.support)}
           onOpenTerms={() => void Linking.openURL(APP_LINKS.termsOfUse)}
@@ -415,6 +425,7 @@ export function SaintsLockApp() {
           }}
           ritualDurationSeconds={state.settings.ritualDurationSeconds}
           selectedApps={state.settings.selectedApps}
+          showNativeScreenTimeSetup={shouldShowNativeScreenTimeSetup()}
           strictModeEnabled={state.settings.strictModeEnabled}
           unlockWindowMinutes={state.settings.unlockWindowMinutes}
         />

@@ -32,31 +32,58 @@ enum SaintsLockAuthorization {
   @MainActor
   static func requestAuthorization() async -> [String: Any] {
     guard SaintsLockScreenTimeEnvironment.isNativeScreenTimeEnabled() else {
-      return SaintsLockScreenTimeEnvironment.nativeScreenTimeDisabledResult()
+      return authorizationPayload(
+        success: false,
+        status: .unsupported,
+        message: "Native Screen Time support is disabled in this build."
+      )
     }
 
     #if canImport(FamilyControls)
-    guard #available(iOS 15.0, *) else {
-      return SaintsLockScreenTimeEnvironment.unsupported(
-        "Family Controls authorization requires iOS 15 or later."
+    guard #available(iOS 16.0, *) else {
+      return authorizationPayload(
+        success: false,
+        status: .unsupported,
+        message: "Family Controls authorization requires iOS 16 or later."
       )
     }
 
     do {
       try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
-      return result(
-        for: AuthorizationCenter.shared.authorizationStatus,
-        messagePrefix: "Family Controls authorization"
+      let status = mapStatus(AuthorizationCenter.shared.authorizationStatus)
+      let didApprove = status == .approved
+      let message = didApprove
+        ? "Family Controls authorization approved."
+        : "Family Controls authorization \(status.rawValue)."
+
+      if didApprove {
+        SaintsLockSharedStorage.saveLastError(nil)
+      } else {
+        SaintsLockSharedStorage.saveLastError(message)
+      }
+
+      return authorizationPayload(
+        success: didApprove,
+        status: status,
+        message: message
       )
     } catch {
-      return errorResult(
-        error,
-        fallbackStatus: mapStatus(AuthorizationCenter.shared.authorizationStatus)
+      let fallbackStatus = mapStatus(AuthorizationCenter.shared.authorizationStatus)
+      let message = "Family Controls authorization failed: \(error.localizedDescription)"
+      SaintsLockSharedStorage.saveLastError(message)
+
+      return authorizationPayload(
+        success: false,
+        status: fallbackStatus,
+        message: message,
+        error: error.localizedDescription
       )
     }
     #else
-    return SaintsLockScreenTimeEnvironment.unsupported(
-      "Family Controls is unavailable in this native build."
+    return authorizationPayload(
+      success: false,
+      status: .unsupported,
+      message: "Family Controls is unavailable in this native build."
     )
     #endif
   }
@@ -68,9 +95,9 @@ enum SaintsLockAuthorization {
     }
 
     #if canImport(FamilyControls)
-    guard #available(iOS 15.0, *) else {
+    guard #available(iOS 16.0, *) else {
       return SaintsLockScreenTimeEnvironment.unsupported(
-        "Family Controls authorization requires iOS 15 or later."
+        "Family Controls authorization requires iOS 16 or later."
       )
     }
 
@@ -86,7 +113,7 @@ enum SaintsLockAuthorization {
   }
 
   #if canImport(FamilyControls)
-  @available(iOS 15.0, *)
+  @available(iOS 16.0, *)
   static func mapStatus(_ status: AuthorizationStatus) -> SaintsLockScreenTimeStatus {
     switch status {
     case .approved:
@@ -102,7 +129,7 @@ enum SaintsLockAuthorization {
   #endif
 
   #if canImport(FamilyControls)
-  @available(iOS 15.0, *)
+  @available(iOS 16.0, *)
   private static func result(
     for status: AuthorizationStatus,
     messagePrefix: String
@@ -140,10 +167,35 @@ enum SaintsLockAuthorization {
     _ error: Error,
     fallbackStatus: SaintsLockScreenTimeStatus
   ) -> [String: Any] {
-    SaintsLockScreenTimeResult(
-      ok: false,
+    let payload = authorizationPayload(
+      success: false,
       status: fallbackStatus,
-      message: "Family Controls authorization failed: \(error.localizedDescription)"
-    ).toDictionary()
+      message: "Family Controls authorization failed: \(error.localizedDescription)",
+      error: error.localizedDescription
+    )
+
+    SaintsLockSharedStorage.saveLastError(payload["message"] as? String)
+    return payload
+  }
+
+  private static func authorizationPayload(
+    success: Bool,
+    status: SaintsLockScreenTimeStatus,
+    message: String,
+    error: String? = nil
+  ) -> [String: Any] {
+    var payload: [String: Any] = [
+      "success": success,
+      "ok": success,
+      "authorizationStatus": status.rawValue,
+      "status": status.rawValue,
+      "message": message,
+    ]
+
+    if let error {
+      payload["error"] = error
+    }
+
+    return payload
   }
 }

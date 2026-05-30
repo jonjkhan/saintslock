@@ -12,11 +12,11 @@ enum SaintsLockScreenTimeEnvironment {
   }
 
   static func isDevelopmentFamilyControlsEnabled() -> Bool {
-    isNativeScreenTimeEnabled()
+    return isNativeScreenTimeEnabled()
   }
 
   static func unsupported(_ message: String) -> [String: Any] {
-    SaintsLockScreenTimeResult(
+    return SaintsLockScreenTimeResult(
       ok: false,
       status: .unsupported,
       message: message
@@ -24,7 +24,7 @@ enum SaintsLockScreenTimeEnvironment {
   }
 
   static func notImplemented(_ message: String) -> [String: Any] {
-    SaintsLockScreenTimeResult(
+    return SaintsLockScreenTimeResult(
       ok: false,
       status: .notImplemented,
       message: message
@@ -32,22 +32,28 @@ enum SaintsLockScreenTimeEnvironment {
   }
 
   static func unavailableForCurrentBuild(_ message: String) -> [String: Any] {
-    unsupported(message)
+    return unsupported(message)
   }
 
   static func nativeScreenTimeDisabledResult() -> [String: Any] {
-    unavailableForCurrentBuild("Native Screen Time support is disabled in this build.")
+    let message = "Native Screen Time support is disabled in this build."
+    SaintsLockSharedStorage.saveLastError(message)
+    return unavailableForCurrentBuild(message)
   }
 
   static func requiresIOS16(_ feature: String) -> [String: Any] {
-    unsupported("\(feature) requires iOS 16 or later.")
+    let message = "\(feature) requires iOS 16 or later."
+    SaintsLockSharedStorage.saveLastError(message)
+    return unsupported(message)
   }
 
   static func requiresSelection() -> [String: Any] {
-    SaintsLockScreenTimeResult(
+    let message = "No apps selected yet."
+    SaintsLockSharedStorage.saveLastError(message)
+    return SaintsLockScreenTimeResult(
       ok: false,
       status: .notDetermined,
-      message: "Choose apps with Screen Time before applying SaintsLock shielding."
+      message: message
     ).toDictionary(extra: ["selection": NSNull()])
   }
 
@@ -57,7 +63,7 @@ enum SaintsLockScreenTimeEnvironment {
     message: String,
     selection: [String: Any]? = nil
   ) -> [String: Any] {
-    SaintsLockScreenTimeResult(
+    return SaintsLockScreenTimeResult(
       ok: ok,
       status: status,
       message: message
@@ -69,24 +75,36 @@ public class SaintsLockScreenTimeModule: Module {
   public func definition() -> ModuleDefinition {
     Name("SaintsLockScreenTime")
 
+    AsyncFunction("getDiagnostics") { () async -> [String: Any] in
+      return await SaintsLockDiagnostics.getDiagnostics()
+    }
+
     AsyncFunction("requestAuthorization") { () async -> [String: Any] in
-      await SaintsLockAuthorization.requestAuthorization()
+      return await SaintsLockAuthorization.requestAuthorization()
     }
 
     AsyncFunction("getAuthorizationStatus") { () async -> [String: Any] in
-      await SaintsLockAuthorization.getAuthorizationStatus()
+      return await SaintsLockAuthorization.getAuthorizationStatus()
     }
 
     AsyncFunction("presentFamilyActivityPicker") { () async -> [String: Any] in
-      await SaintsLockFamilyActivityPicker.presentPicker()
+      return await SaintsLockFamilyActivityPicker.presentPicker()
     }
 
     AsyncFunction("applyShield") { () async -> [String: Any] in
-      SaintsLockManagedSettingsController.applyShield()
+      return SaintsLockManagedSettingsController.applyShield()
     }
 
     AsyncFunction("clearShield") { () async -> [String: Any] in
-      SaintsLockManagedSettingsController.clearShield()
+      return SaintsLockManagedSettingsController.clearShield()
+    }
+
+    AsyncFunction("unlockForDuration") { (seconds: Double) async -> [String: Any] in
+      return SaintsLockManagedSettingsController.unlockForDuration(seconds: seconds)
+    }
+
+    AsyncFunction("relockNow") { () async -> [String: Any] in
+      return SaintsLockManagedSettingsController.relockNow()
     }
   }
 }

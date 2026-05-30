@@ -1,6 +1,7 @@
 import {
   ScreenTimeSelectionSummary,
   ScreenTimeAuthorizationResult,
+  ScreenTimeDiagnostics,
   ScreenTimePickerResult,
   ScreenTimeShieldResult,
 } from './SaintsLockScreenTime.types';
@@ -8,19 +9,25 @@ import { requireNativeModule } from 'expo-modules-core';
 import { Platform } from 'react-native';
 
 type SaintsLockScreenTimeNativeModule = {
+  getDiagnostics(): Promise<ScreenTimeDiagnostics>;
   requestAuthorization(): Promise<ScreenTimeAuthorizationResult>;
   getAuthorizationStatus(): Promise<ScreenTimeAuthorizationResult>;
   presentFamilyActivityPicker(): Promise<ScreenTimePickerResult>;
   applyShield(): Promise<ScreenTimeShieldResult>;
   clearShield(): Promise<ScreenTimeShieldResult>;
+  unlockForDuration(seconds: number): Promise<ScreenTimeShieldResult>;
+  relockNow(): Promise<ScreenTimeShieldResult>;
 };
 
 const expectedMethodNames = [
+  'getDiagnostics',
   'requestAuthorization',
   'getAuthorizationStatus',
   'presentFamilyActivityPicker',
   'applyShield',
   'clearShield',
+  'unlockForDuration',
+  'relockNow',
 ];
 
 let nativeModule: SaintsLockScreenTimeNativeModule | null = null;
@@ -44,13 +51,45 @@ export function isNativeModuleAvailable() {
 }
 
 export function getNativeModuleDiagnostics() {
+  const callableMethodNames = nativeModule
+    ? expectedMethodNames.filter(
+        (methodName) =>
+          typeof nativeModule?.[methodName as keyof SaintsLockScreenTimeNativeModule] ===
+          'function'
+      )
+    : [];
+
   return {
     moduleName: 'SaintsLockScreenTime',
     nativeModuleExists: nativeModule !== null,
     nativeModuleLoadError,
     expectedMethodNames,
+    callableMethodNames,
     exportedMethodNames: nativeModule ? Object.keys(nativeModule) : [],
   };
+}
+
+export async function getDiagnostics(): Promise<ScreenTimeDiagnostics> {
+  if (!nativeModule) {
+    return {
+      platform: Platform.OS,
+      moduleLoaded: false,
+      nativeScreenTimeEnabled: false,
+      authorizationStatus: 'unsupported',
+      hasFamilyControlsEntitlement: null,
+      hasAppGroup: false,
+      hasSavedSelection: false,
+      selectedApplicationTokenCount: 0,
+      selectedCategoryTokenCount: 0,
+      selectedWebDomainTokenCount: 0,
+      isShieldApplied: false,
+      unlockExpiresAt: null,
+      lastError: nativeModuleLoadError,
+      limitation: 'SaintsLockScreenTime native module was not loaded.',
+    };
+  }
+
+  return nativeModule.getDiagnostics();
 }
 
 export async function requestAuthorization(): Promise<ScreenTimeAuthorizationResult> {
@@ -96,8 +135,25 @@ export async function clearShield(): Promise<ScreenTimeShieldResult> {
   return nativeModule.clearShield();
 }
 
+export async function unlockForDuration(seconds: number): Promise<ScreenTimeShieldResult> {
+  if (!nativeModule) {
+    return unsupported('Unlocking a real iOS shield is unavailable in this build.');
+  }
+
+  return nativeModule.unlockForDuration(seconds);
+}
+
+export async function relockNow(): Promise<ScreenTimeShieldResult> {
+  if (!nativeModule) {
+    return unsupported('Re-applying a real iOS shield is unavailable in this build.');
+  }
+
+  return nativeModule.relockNow();
+}
+
 export type {
   ScreenTimeAuthorizationResult,
+  ScreenTimeDiagnostics,
   ScreenTimePickerResult,
   ScreenTimeSelectionSummary,
   ScreenTimeShieldResult,

@@ -2,7 +2,7 @@ import Foundation
 
 enum SaintsLockDeviceActivityScheduler {
   static func scheduleUnlockWindowPlaceholder() -> [String: Any] {
-    SaintsLockScreenTimeEnvironment.notImplemented(
+    return SaintsLockScreenTimeEnvironment.notImplemented(
       "DeviceActivity scheduling is scaffolded but not implemented yet."
     )
   }

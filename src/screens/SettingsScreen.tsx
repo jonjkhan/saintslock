@@ -24,11 +24,14 @@ interface SettingsScreenProps {
   onSelectDuration: (duration: RitualDurationSeconds) => void;
   onSelectUnlockWindow: (minutes: UnlockWindowMinutes) => void;
   onToggleStrictMode: (enabled: boolean) => void;
+  onOpenNativeScreenTime?: () => void;
   onRestorePurchases: () => void;
   onOpenCustomerCenter: () => void;
   onOpenPrivacy: () => void;
   onOpenTerms: () => void;
   onOpenSupport: () => void;
+  showNativeScreenTimeSetup?: boolean;
+  nativeScreenTimeMessage?: string | null;
 }
 
 export function SettingsScreen({
@@ -42,11 +45,14 @@ export function SettingsScreen({
   onSelectDuration,
   onSelectUnlockWindow,
   onToggleStrictMode,
+  onOpenNativeScreenTime,
   onRestorePurchases,
   onOpenCustomerCenter,
   onOpenPrivacy,
   onOpenTerms,
   onOpenSupport,
+  showNativeScreenTimeSetup = false,
+  nativeScreenTimeMessage,
 }: SettingsScreenProps) {
   return (
     <ScreenShell
@@ -55,6 +61,21 @@ export function SettingsScreen({
     >
       <AppCard>
         <Text style={styles.sectionLabel}>Selected apps</Text>
+        {showNativeScreenTimeSetup ? (
+          <View style={styles.nativeSetupBlock}>
+            <AppButton
+              label="Set up app blocking"
+              onPress={onOpenNativeScreenTime ?? (() => undefined)}
+              variant="secondary"
+            />
+            <Text style={styles.helperText}>
+              Choose apps and categories with Apple's Screen Time picker.
+            </Text>
+            {nativeScreenTimeMessage ? (
+              <Text style={styles.statusText}>{nativeScreenTimeMessage}</Text>
+            ) : null}
+          </View>
+        ) : null}
         <View style={styles.optionsGrid}>
           {DISTRACTING_APPS.map((appName) => (
             <PillOption
@@ -160,6 +181,16 @@ const styles = StyleSheet.create({
     fontFamily: typography.bodyFamily,
     fontSize: 14,
     lineHeight: 22,
+  },
+  nativeSetupBlock: {
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  statusText: {
+    color: colors.accent,
+    fontFamily: typography.bodyFamily,
+    fontSize: 13,
+    lineHeight: 20,
   },
   strictModeRow: {
     marginTop: spacing.lg,

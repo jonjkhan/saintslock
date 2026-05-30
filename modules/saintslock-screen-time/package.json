@@ -1,7 +1,12 @@
 {
   "name": "saintslock-screen-time",
   "version": "1.0.0",
+  "description": "SaintsLock iOS Screen Time native module",
   "private": true,
+  "license": "UNLICENSED",
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "peerDependencies": {
+    "expo": "*"
+  }
 }

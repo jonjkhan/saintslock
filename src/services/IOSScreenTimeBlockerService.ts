@@ -1,19 +1,40 @@
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
-import type { BlockerService } from './BlockerService';
-import { loadBlockerSnapshot, saveBlockerSnapshot } from './storage';
 import {
   applyShield,
   clearShield,
   getAuthorizationStatus as getScreenTimeAuthorizationStatus,
+  getDiagnostics as getNativeScreenTimeDiagnostics,
   getNativeModuleDiagnostics,
   isNativeModuleAvailable,
-  type ScreenTimePickerResult,
-  requestAuthorization,
   presentFamilyActivityPicker,
+  relockNow,
+  requestAuthorization,
+  type ScreenTimeDiagnostics,
+  type ScreenTimePickerResult,
+  unlockForDuration,
 } from '../../modules/saintslock-screen-time/src';
+import type { BlockerService } from './BlockerService';
+import { loadBlockerSnapshot, saveBlockerSnapshot } from './storage';
 import { PermissionStatus } from '../types/models';
+
+type RuntimeExtra = Record<string, unknown> & {
+  enableScreenTime?: boolean | string;
+  forceMockBlocker?: boolean | string;
+  saintsLockScreenTime?: {
+    enableNativeScreenTime?: boolean | string;
+    enableDevelopmentFamilyControls?: boolean | string;
+  };
+};
+
+type ScreenTimeSetupResult = {
+  ok: boolean;
+  message: string;
+  nextStep?: 'chooseApps';
+  selection?: ScreenTimePickerResult['selection'];
+  diagnostics: Awaited<ReturnType<typeof getScreenTimeDiagnostics>>;
+};
 
 let relockTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -29,10 +50,10 @@ function parseRuntimeBoolean(value: unknown) {
   return false;
 }
 
-function getExpoExtra() {
+function getExpoExtra(): RuntimeExtra {
   const constants = Constants as typeof Constants & {
-    manifest?: { extra?: Record<string, unknown> };
-    manifest2?: { extra?: Record<string, unknown> };
+    manifest?: { extra?: RuntimeExtra };
+    manifest2?: { extra?: RuntimeExtra };
   };
 
   return (
@@ -40,72 +61,30 @@ function getExpoExtra() {
     constants.manifest?.extra ??
     constants.manifest2?.extra ??
     {}
-  ) as Record<string, unknown>;
+  ) as RuntimeExtra;
 }
 
 export function isNativeScreenTimeEnabled() {
   const extra = getExpoExtra();
-  const screenTimeConfig = (extra.saintsLockScreenTime ?? {}) as {
-    enableNativeScreenTime?: boolean | string;
-    enableDevelopmentFamilyControls?: boolean | string;
-  };
 
   return parseRuntimeBoolean(
     extra.enableScreenTime ??
-      screenTimeConfig.enableNativeScreenTime ??
-      screenTimeConfig.enableDevelopmentFamilyControls ??
+      extra.saintsLockScreenTime?.enableNativeScreenTime ??
+      extra.saintsLockScreenTime?.enableDevelopmentFamilyControls ??
       process.env.EXPO_PUBLIC_SAINTSLOCK_ENABLE_SCREEN_TIME
   );
 }
 
-export function shouldUseNativeScreenTime() {
-  return Platform.OS === 'ios' && isNativeScreenTimeEnabled();
-}
-
-function logNativeUnavailable(context: string) {
-  const diagnostics = getScreenTimeDiagnostics();
-  console.error(`[screen-time] ${context}: native module unavailable`, diagnostics);
-}
-
-export function getScreenTimeDiagnostics() {
+export function isMockBlockerForced() {
   const extra = getExpoExtra();
-  const screenTimeConfig = (extra.saintsLockScreenTime ?? {}) as Record<string, unknown>;
-  const nativeDiagnostics = getNativeModuleDiagnostics();
 
-  return {
-    platform: Platform.OS,
-    enableScreenTime: isNativeScreenTimeEnabled(),
-    shouldUseNativeScreenTime: shouldUseNativeScreenTime(),
-    extraEnableScreenTime: extra.enableScreenTime,
-    extraSaintsLockScreenTime: screenTimeConfig,
-    nativeModuleExists: nativeDiagnostics.nativeModuleExists,
-    nativeModuleLoadError: nativeDiagnostics.nativeModuleLoadError,
-    nativeModuleName: nativeDiagnostics.moduleName,
-    exportedMethodNames: nativeDiagnostics.exportedMethodNames,
-    expectedMethodNames: nativeDiagnostics.expectedMethodNames,
-  };
+  return parseRuntimeBoolean(
+    extra.forceMockBlocker ?? process.env.EXPO_PUBLIC_SAINTSLOCK_FORCE_MOCK_BLOCKER
+  );
 }
 
-export function formatScreenTimeDiagnostics() {
-  const diagnostics = getScreenTimeDiagnostics();
-  return [
-    `Platform.OS: ${diagnostics.platform}`,
-    `enableScreenTime: ${String(diagnostics.enableScreenTime)}`,
-    `shouldUseNativeScreenTime: ${String(diagnostics.shouldUseNativeScreenTime)}`,
-    `nativeModuleExists: ${String(diagnostics.nativeModuleExists)}`,
-    `nativeModuleName: ${diagnostics.nativeModuleName}`,
-    `exportedMethodNames: ${
-      diagnostics.exportedMethodNames.length > 0
-        ? diagnostics.exportedMethodNames.join(', ')
-        : '(none enumerable)'
-    }`,
-    `expectedMethodNames: ${diagnostics.expectedMethodNames.join(', ')}`,
-    diagnostics.nativeModuleLoadError
-      ? `nativeModuleLoadError: ${diagnostics.nativeModuleLoadError}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join('\n');
+export function shouldUseNativeScreenTime() {
+  return Platform.OS === 'ios' && isNativeScreenTimeEnabled() && !isMockBlockerForced();
 }
 
 function toPermissionStatus(status: string): PermissionStatus {
@@ -124,17 +103,117 @@ function toPermissionStatus(status: string): PermissionStatus {
   return 'unsupported';
 }
 
+function buildNativeUnavailableMessage() {
+  const nativeDiagnostics = getNativeModuleDiagnostics();
+  return [
+    'Native Screen Time module is unavailable in this build.',
+    nativeDiagnostics.nativeModuleLoadError
+      ? `Native module load error: ${nativeDiagnostics.nativeModuleLoadError}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function ensureNativeModuleLoaded() {
+  if (!isNativeModuleAvailable()) {
+    const message = buildNativeUnavailableMessage();
+    console.error('[screen-time] native module unavailable', getNativeModuleDiagnostics());
+    throw new Error(message);
+  }
+}
+
+function assertNativeResult(
+  result: { ok: boolean; message: string },
+  methodName: string
+) {
+  if (!result.ok) {
+    throw new Error(`${methodName} failed: ${result.message}`);
+  }
+}
+
+export async function getScreenTimeDiagnostics(includeNative = true) {
+  const extra = getExpoExtra();
+  const moduleDiagnostics = getNativeModuleDiagnostics();
+  let nativeDiagnostics: ScreenTimeDiagnostics | null = null;
+  let nativeDiagnosticsError: string | null = null;
+
+  if (includeNative && isNativeModuleAvailable()) {
+    try {
+      nativeDiagnostics = await getNativeScreenTimeDiagnostics();
+    } catch (error) {
+      nativeDiagnosticsError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  return {
+    platform: Platform.OS,
+    enableScreenTime: isNativeScreenTimeEnabled(),
+    forceMockBlocker: isMockBlockerForced(),
+    shouldUseNativeScreenTime: shouldUseNativeScreenTime(),
+    extraEnableScreenTime: extra.enableScreenTime,
+    extraForceMockBlocker: extra.forceMockBlocker,
+    extraSaintsLockScreenTime: extra.saintsLockScreenTime ?? {},
+    nativeModuleExists: moduleDiagnostics.nativeModuleExists,
+    nativeModuleLoadError: moduleDiagnostics.nativeModuleLoadError,
+    nativeModuleName: moduleDiagnostics.moduleName,
+    exportedMethodNames: moduleDiagnostics.exportedMethodNames,
+    callableMethodNames: moduleDiagnostics.callableMethodNames,
+    expectedMethodNames: moduleDiagnostics.expectedMethodNames,
+    nativeDiagnostics,
+    nativeDiagnosticsError,
+  };
+}
+
+export async function formatScreenTimeDiagnostics() {
+  const diagnostics = await getScreenTimeDiagnostics();
+  return formatScreenTimeDiagnosticsSnapshot(diagnostics);
+}
+
+export function formatScreenTimeDiagnosticsSnapshot(
+  diagnostics: Awaited<ReturnType<typeof getScreenTimeDiagnostics>>
+) {
+  const native = diagnostics.nativeDiagnostics;
+
+  return [
+    `Platform.OS: ${diagnostics.platform}`,
+    `enableScreenTime: ${String(diagnostics.enableScreenTime)}`,
+    `forceMockBlocker: ${String(diagnostics.forceMockBlocker)}`,
+    `shouldUseNativeScreenTime: ${String(diagnostics.shouldUseNativeScreenTime)}`,
+    `nativeModuleExists: ${String(diagnostics.nativeModuleExists)}`,
+    `nativeModuleName: ${diagnostics.nativeModuleName}`,
+    `callableMethodNames: ${
+      diagnostics.callableMethodNames.length > 0
+        ? diagnostics.callableMethodNames.join(', ')
+        : '(none)'
+    }`,
+    `authorizationStatus: ${native?.authorizationStatus ?? '(native unavailable)'}`,
+    `hasAppGroup: ${String(native?.hasAppGroup ?? false)}`,
+    `hasSavedSelection: ${String(native?.hasSavedSelection ?? false)}`,
+    `selectedApplicationTokenCount: ${native?.selectedApplicationTokenCount ?? 0}`,
+    `selectedCategoryTokenCount: ${native?.selectedCategoryTokenCount ?? 0}`,
+    `selectedWebDomainTokenCount: ${native?.selectedWebDomainTokenCount ?? 0}`,
+    `isShieldApplied: ${String(native?.isShieldApplied ?? false)}`,
+    native?.unlockExpiresAt ? `unlockExpiresAt: ${native.unlockExpiresAt}` : null,
+    native?.lastError ? `lastError: ${native.lastError}` : null,
+    diagnostics.nativeModuleLoadError
+      ? `nativeModuleLoadError: ${diagnostics.nativeModuleLoadError}`
+      : null,
+    diagnostics.nativeDiagnosticsError
+      ? `nativeDiagnosticsError: ${diagnostics.nativeDiagnosticsError}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 export class IOSScreenTimeBlockerService implements BlockerService {
   async requestPermissions() {
     if (!shouldUseNativeScreenTime()) {
       return false;
     }
 
-    if (!isNativeModuleAvailable()) {
-      logNativeUnavailable('requestPermissions');
-      return false;
-    }
-
+    ensureNativeModuleLoaded();
     const result = await requestAuthorization();
     return result.status === 'approved';
   }
@@ -144,43 +223,34 @@ export class IOSScreenTimeBlockerService implements BlockerService {
       return 'unsupported';
     }
 
-    if (!isNativeModuleAvailable()) {
-      logNativeUnavailable('getPermissionStatus');
-      return 'unsupported';
-    }
-
+    ensureNativeModuleLoaded();
     const result = await getScreenTimeAuthorizationStatus();
     return toPermissionStatus(result.status);
   }
 
-  async setBlockedApps(_apps: string[]) {
-    if (!shouldUseNativeScreenTime()) {
-      return;
-    }
-
-    if (!isNativeModuleAvailable()) {
-      logNativeUnavailable('setBlockedApps');
-      return;
-    }
-
+  async setBlockedApps(apps: string[]) {
     const currentSnapshot = await loadBlockerSnapshot();
     await saveBlockerSnapshot({
       ...currentSnapshot,
-      blockedApps: _apps,
+      blockedApps: apps,
     });
-    await applyShield();
-  }
 
-  async temporarilyUnlock(appId: string, minutes: number) {
     if (!shouldUseNativeScreenTime()) {
       return;
     }
 
-    if (!isNativeModuleAvailable()) {
-      logNativeUnavailable('temporarilyUnlock');
+    ensureNativeModuleLoaded();
+    const diagnostics = await getNativeScreenTimeDiagnostics();
+    if (!diagnostics.hasSavedSelection) {
+      console.warn('[screen-time] setBlockedApps skipped applyShield: no native selection');
       return;
     }
 
+    const result = await applyShield();
+    assertNativeResult(result, 'applyShield');
+  }
+
+  async temporarilyUnlock(appId: string, minutes: number) {
     const currentSnapshot = await loadBlockerSnapshot();
     const expiry = new Date(Date.now() + minutes * 60 * 1000).toISOString();
 
@@ -192,20 +262,17 @@ export class IOSScreenTimeBlockerService implements BlockerService {
       },
     });
 
-    await clearShield();
-    scheduleRelock(minutes);
-  }
-
-  async relockExpiredApps() {
     if (!shouldUseNativeScreenTime()) {
       return;
     }
 
-    if (!isNativeModuleAvailable()) {
-      logNativeUnavailable('relockExpiredApps');
-      return;
-    }
+    ensureNativeModuleLoaded();
+    const result = await unlockForDuration(minutes * 60);
+    assertNativeResult(result, 'unlockForDuration');
+    scheduleRelock(minutes);
+  }
 
+  async relockExpiredApps() {
     const currentSnapshot = await loadBlockerSnapshot();
     const now = Date.now();
     const activeExpirations = Object.fromEntries(
@@ -219,13 +286,26 @@ export class IOSScreenTimeBlockerService implements BlockerService {
       unlockExpirations: activeExpirations,
     });
 
+    if (!shouldUseNativeScreenTime()) {
+      return;
+    }
+
+    ensureNativeModuleLoaded();
+
     if (Object.keys(activeExpirations).length > 0) {
-      await clearShield();
+      const result = await clearShield();
+      assertNativeResult(result, 'clearShield');
       scheduleRelockForEarliestExpiry(activeExpirations);
       return;
     }
 
-    await applyShield();
+    const diagnostics = await getNativeScreenTimeDiagnostics();
+    if (!diagnostics.hasSavedSelection) {
+      return;
+    }
+
+    const result = await relockNow();
+    assertNativeResult(result, 'relockNow');
   }
 
   isNativeBlockingAvailable() {
@@ -260,73 +340,119 @@ function scheduleRelockForEarliestExpiry(expirations: Record<string, string>) {
   }, delay);
 }
 
-export async function runNativeScreenTimeSetup(): Promise<{
-  ok: boolean;
-  message: string;
-  selection?: ScreenTimePickerResult['selection'];
-  diagnostics: ReturnType<typeof getScreenTimeDiagnostics>;
-}> {
-  const initialDiagnostics = getScreenTimeDiagnostics();
-  console.log('[screen-time] setup pressed', initialDiagnostics);
+function delay(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+export async function setupNativeScreenTimeBlocking(): Promise<ScreenTimeSetupResult> {
+  console.log('[screen-time] setup pressed', await getScreenTimeDiagnostics());
 
   if (!shouldUseNativeScreenTime()) {
     return {
       ok: false,
-      message: 'Native Screen Time support is disabled in this build.',
-      diagnostics: initialDiagnostics,
+      message: 'Native Screen Time support is disabled or mock blocker is forced.',
+      diagnostics: await getScreenTimeDiagnostics(),
     };
   }
 
   if (!isNativeModuleAvailable()) {
     return {
       ok: false,
-      message: 'The SaintsLock Screen Time native module is unavailable in this build.',
-      diagnostics: getScreenTimeDiagnostics(),
+      message: buildNativeUnavailableMessage(),
+      diagnostics: await getScreenTimeDiagnostics(),
     };
   }
 
-  console.log('[screen-time] calling getAuthorizationStatus()');
-  const status = await getScreenTimeAuthorizationStatus();
-  console.log('[screen-time] getAuthorizationStatus() result', status);
-  if (status.status !== 'approved') {
-    console.log('[screen-time] calling requestAuthorization()');
-    const authorizationResult = await requestAuthorization();
-    console.log('[screen-time] requestAuthorization() result', authorizationResult);
-    if (authorizationResult.status !== 'approved') {
+  try {
+    console.log('[screen-time] calling getDiagnostics()');
+    const beforeDiagnostics = await getNativeScreenTimeDiagnostics();
+    console.log('[screen-time] getDiagnostics() result', beforeDiagnostics);
+
+    if (beforeDiagnostics.authorizationStatus !== 'approved') {
+      console.log('[screen-time] calling requestAuthorization()');
+      const authorizationResult = await requestAuthorization();
+      console.log('[screen-time] requestAuthorization() result', authorizationResult);
+
+      const authorizationStatus =
+        authorizationResult.authorizationStatus ?? authorizationResult.status;
+
+      if (authorizationStatus !== 'approved') {
+        return {
+          ok: false,
+          message: authorizationResult.message,
+          diagnostics: {
+            ...(await getScreenTimeDiagnostics(false)),
+            nativeDiagnostics: null,
+            nativeDiagnosticsError: authorizationResult.error ?? null,
+          },
+        };
+      }
+
       return {
         ok: false,
-        message: authorizationResult.message,
-        diagnostics: getScreenTimeDiagnostics(),
+        nextStep: 'chooseApps',
+        message:
+          'Screen Time access is approved. Tap Set up app blocking again to choose apps.',
+        diagnostics: {
+          ...(await getScreenTimeDiagnostics(false)),
+          nativeDiagnostics: {
+            ...beforeDiagnostics,
+            authorizationStatus: 'approved',
+            lastError: null,
+          },
+        },
       };
     }
-  }
 
-  console.log('[screen-time] calling presentFamilyActivityPicker()');
-  const pickerResult = await presentFamilyActivityPicker();
-  console.log('[screen-time] presentFamilyActivityPicker() result', pickerResult);
-  if (pickerResult.ok) {
+    await delay(700);
+    console.log('[screen-time] calling presentFamilyActivityPicker()');
+    const pickerResult = await presentFamilyActivityPicker();
+    console.log('[screen-time] presentFamilyActivityPicker() result', pickerResult);
+
+    if (!pickerResult.ok) {
+      return {
+        ok: false,
+        message: pickerResult.message,
+        selection: pickerResult.selection,
+        diagnostics: await getScreenTimeDiagnostics(),
+      };
+    }
+
     console.log('[screen-time] calling applyShield()');
     const shieldResult = await applyShield();
     console.log('[screen-time] applyShield() result', shieldResult);
+
     if (!shieldResult.ok) {
       return {
         ok: false,
         message: shieldResult.message,
         selection: pickerResult.selection,
-        diagnostics: getScreenTimeDiagnostics(),
+        diagnostics: await getScreenTimeDiagnostics(),
       };
     }
-  }
 
-  return {
-    ok: pickerResult.ok,
-    message: pickerResult.message,
-    selection: pickerResult.selection,
-    diagnostics: getScreenTimeDiagnostics(),
-  };
+    return {
+      ok: true,
+      message: shieldResult.message,
+      selection: pickerResult.selection,
+      diagnostics: await getScreenTimeDiagnostics(),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[screen-time] native setup failed', error);
+
+    return {
+      ok: false,
+      message,
+      diagnostics: await getScreenTimeDiagnostics(),
+    };
+  }
 }
 
-export const runDevelopmentFamilyControlsSetup = runNativeScreenTimeSetup;
+export const runNativeScreenTimeSetup = setupNativeScreenTimeBlocking;
+export const runDevelopmentFamilyControlsSetup = setupNativeScreenTimeBlocking;
 
 export function shouldShowNativeScreenTimeSetup() {
   return Platform.OS === 'ios' && isNativeScreenTimeEnabled();

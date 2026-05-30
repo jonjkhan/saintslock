@@ -96,6 +96,10 @@ const initialState: AppContextState = {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+function actionErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppContextState>(initialState);
   const stateRef = useRef<AppContextState>(initialState);
@@ -106,7 +110,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const syncBlockerSnapshot = async () => {
-    await getActiveBlockerService().relockExpiredApps();
+    try {
+      await getActiveBlockerService().relockExpiredApps();
+    } catch (error) {
+      console.error('[screen-time] Failed to sync blocker snapshot', error);
+    }
+
     const snapshot = await getMockBlockerSnapshot();
     const current = stateRef.current;
     commitState({
@@ -147,7 +156,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const nextSubscription = await refreshCustomerInfo(subscription);
       const nextDailyStats = normalizeDailyStats(dailyStats);
 
-      await getActiveBlockerService().setBlockedApps(settings.selectedApps);
+      try {
+        await getActiveBlockerService().setBlockedApps(settings.selectedApps);
+      } catch (error) {
+        console.error('[screen-time] Failed to initialize blocker service', error);
+      }
       const blockerSnapshot = await getMockBlockerSnapshot();
 
       if (!mounted) {
@@ -247,6 +260,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
+      try {
+        await getActiveBlockerService().setBlockedApps(uniqueApps);
+      } catch (error) {
+        return {
+          ok: false,
+          reason: 'config',
+          message: actionErrorMessage(error, 'Unable to update app blocking.'),
+        };
+      }
+
       commitState({
         ...current,
         settings: {
@@ -257,7 +280,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ? current.selectedDemoApp
           : uniqueApps[0] ?? null,
       });
-      await getActiveBlockerService().setBlockedApps(uniqueApps);
       await syncBlockerSnapshot();
       await trackEvent('app_selected', {
         selectedCount: uniqueApps.length,
@@ -387,16 +409,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         nextDaily.dateKey
       );
 
+      try {
+        await getActiveBlockerService().temporarilyUnlock(
+          appId,
+          current.settings.unlockWindowMinutes
+        );
+      } catch (error) {
+        return {
+          ok: false,
+          reason: 'config',
+          message: actionErrorMessage(error, 'Unable to unlock app blocking.'),
+        };
+      }
+
       commitState({
         ...current,
         dailyStats: nextDaily,
         lifetimeStats: nextLifetime,
       });
 
-      await getActiveBlockerService().temporarilyUnlock(
-        appId,
-        current.settings.unlockWindowMinutes
-      );
       await syncBlockerSnapshot();
       await trackEvent('ritual_completed', {
         appId,
@@ -438,15 +469,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         bypassesUsed: normalizedDaily.bypassesUsed + 1,
       };
 
+      try {
+        await getActiveBlockerService().temporarilyUnlock(
+          appId,
+          current.settings.unlockWindowMinutes
+        );
+      } catch (error) {
+        return {
+          ok: false,
+          reason: 'config',
+          message: actionErrorMessage(error, 'Unable to bypass app blocking.'),
+        };
+      }
+
       commitState({
         ...current,
         dailyStats: nextDaily,
       });
 
-      await getActiveBlockerService().temporarilyUnlock(
-        appId,
-        current.settings.unlockWindowMinutes
-      );
       await syncBlockerSnapshot();
       await trackEvent('bypass_used', {
         appId,

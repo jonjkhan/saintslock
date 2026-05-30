@@ -7,6 +7,8 @@ import ManagedSettings
 #endif
 
 enum SaintsLockManagedSettingsController {
+  private static var relockWorkItem: DispatchWorkItem?
+
   static func applyShield() -> [String: Any] {
     guard SaintsLockScreenTimeEnvironment.isNativeScreenTimeEnabled() else {
       return SaintsLockScreenTimeEnvironment.nativeScreenTimeDisabledResult()
@@ -21,6 +23,12 @@ enum SaintsLockManagedSettingsController {
       return SaintsLockScreenTimeEnvironment.requiresSelection()
     }
 
+    let selectedTokenCount =
+      selection.applicationTokens.count + selection.categoryTokens.count + selection.webDomainTokens.count
+    guard selectedTokenCount > 0 else {
+      return SaintsLockScreenTimeEnvironment.requiresSelection()
+    }
+
     let store = ManagedSettingsStore()
     store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
     if selection.categoryTokens.isEmpty {
@@ -29,6 +37,10 @@ enum SaintsLockManagedSettingsController {
       store.shield.applicationCategories = .specific(selection.categoryTokens)
     }
     store.shield.webDomains = selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
+
+    SaintsLockSharedStorage.saveShieldApplied(true)
+    SaintsLockSharedStorage.saveUnlockExpiration(nil)
+    SaintsLockSharedStorage.saveLastError(nil)
 
     return SaintsLockScreenTimeEnvironment.shieldResult(
       ok: true,
@@ -58,6 +70,9 @@ enum SaintsLockManagedSettingsController {
     store.shield.applicationCategories = nil
     store.shield.webDomains = nil
 
+    SaintsLockSharedStorage.saveShieldApplied(false)
+    SaintsLockSharedStorage.saveLastError(nil)
+
     return SaintsLockScreenTimeEnvironment.shieldResult(
       ok: true,
       status: .approved,
@@ -69,5 +84,60 @@ enum SaintsLockManagedSettingsController {
       "ManagedSettings is unavailable in this native build."
     )
     #endif
+  }
+
+  static func unlockForDuration(seconds: Double) -> [String: Any] {
+    guard seconds > 0 else {
+      let message = "Unlock duration must be greater than zero seconds."
+      SaintsLockSharedStorage.saveLastError(message)
+      return SaintsLockScreenTimeResult(
+        ok: false,
+        status: .unsupported,
+        message: message
+      ).toDictionary(extra: ["limitation": SaintsLockDiagnostics.timerLimitation])
+    }
+
+    let clearResult = clearShield()
+    guard clearResult["ok"] as? Bool == true else {
+      return clearResult
+    }
+
+    relockWorkItem?.cancel()
+
+    let expiresAt = Date().addingTimeInterval(seconds)
+    let expiresAtString = ISO8601DateFormatter().string(from: expiresAt)
+    SaintsLockSharedStorage.saveUnlockExpiration(expiresAtString)
+
+    let workItem = DispatchWorkItem {
+      let result = applyShield()
+      if result["ok"] as? Bool != true {
+        SaintsLockSharedStorage.saveLastError(result["message"] as? String)
+      }
+    }
+
+    relockWorkItem = workItem
+    DispatchQueue.main.asyncAfter(
+      deadline: .now() + .milliseconds(Int(seconds * 1000)),
+      execute: workItem
+    )
+
+    return SaintsLockScreenTimeEnvironment.shieldResult(
+      ok: true,
+      status: .approved,
+      message: "SaintsLock shielding is cleared until \(expiresAtString).",
+      selection: nil
+    ).merging(
+      [
+        "unlockExpiresAt": expiresAtString,
+        "limitation": SaintsLockDiagnostics.timerLimitation,
+      ],
+      uniquingKeysWith: { current, _ in current }
+    )
+  }
+
+  static func relockNow() -> [String: Any] {
+    relockWorkItem?.cancel()
+    relockWorkItem = nil
+    return applyShield()
   }
 }

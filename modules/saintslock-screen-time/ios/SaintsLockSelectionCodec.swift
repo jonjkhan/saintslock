@@ -4,13 +4,16 @@ import FamilyControls
 #endif
 
 enum SaintsLockSelectionCodec {
-  static func encodeSelectionPlaceholder() -> [String: Any] {
-    [
+  static func emptySummary() -> [String: Any] {
+    return [
       "applicationTokenCount": 0,
       "categoryTokenCount": 0,
       "webDomainTokenCount": 0,
-      "encodedSelection": NSNull(),
     ]
+  }
+
+  static func encodeSelectionPlaceholder() -> [String: Any] {
+    return emptySummary()
   }
 
   #if canImport(FamilyControls)
@@ -35,19 +38,30 @@ enum SaintsLockSelectionCodec {
 
   @available(iOS 16.0, *)
   static func summary(for selection: FamilyActivitySelection) -> [String: Any] {
-    let encodedSelection = encodedSelectionBase64(selection)
+    return [
+      "applicationTokenCount": selection.applicationTokens.count,
+      "categoryTokenCount": selection.categoryTokens.count,
+      "webDomainTokenCount": selection.webDomainTokens.count,
+    ]
+  }
+
+  @available(iOS 16.0, *)
+  static func storagePayload(for selection: FamilyActivitySelection) -> [String: Any]? {
+    guard let encodedSelection = encodedSelectionBase64(selection) else {
+      return nil
+    }
 
     return [
       "applicationTokenCount": selection.applicationTokens.count,
       "categoryTokenCount": selection.categoryTokens.count,
       "webDomainTokenCount": selection.webDomainTokens.count,
-      "encodedSelection": encodedSelection ?? NSNull(),
+      "encodedSelection": encodedSelection,
     ]
   }
 
   @available(iOS 16.0, *)
   static func encodeSelection(_ selection: FamilyActivitySelection) -> [String: Any] {
-    summary(for: selection)
+    return summary(for: selection)
   }
   #endif
 }

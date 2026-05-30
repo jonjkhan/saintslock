@@ -10,6 +10,13 @@ const enableNativeScreenTime = ['1', 'true', 'yes'].includes(
     ''
   ).toLowerCase()
 );
+const forceMockBlocker = ['1', 'true', 'yes'].includes(
+  (
+    process.env.SAINTSLOCK_FORCE_MOCK_BLOCKER ??
+    process.env.EXPO_PUBLIC_SAINTSLOCK_FORCE_MOCK_BLOCKER ??
+    ''
+  ).toLowerCase()
+);
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -17,6 +24,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   extra: {
     ...baseConfig.extra,
     enableScreenTime: enableNativeScreenTime,
+    forceMockBlocker,
     saintsLockScreenTime: {
       appGroup: 'group.com.jonathankhan.saintslock',
       enableNativeScreenTime,
@@ -29,5 +37,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'com.jonathankhan.saintslock.DeviceActivityMonitor',
     },
   },
-  plugins: ['./plugins/withSaintsLockScreenTime.js'],
+  plugins: [
+    [
+      'expo-build-properties',
+      {
+        ios: {
+          deploymentTarget: '16.0',
+        },
+      },
+    ],
+    './plugins/withSaintsLockScreenTime.js',
+  ],
 });

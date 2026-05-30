@@ -20,7 +20,8 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "SAINTSLOCK_ENABLE_SCREEN_TIME": "true"
+        "SAINTSLOCK_ENABLE_SCREEN_TIME": "true",
+         "SAINTSLOCK_FORCE_MOCK_BLOCKER": "false"
       }
     }
   },
